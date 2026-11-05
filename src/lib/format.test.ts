@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { compareRange, parseAmount } from './format.ts';
+import { compareRange, csvCell, parseAmount } from './format.ts';
 
 test('parseAmount Turkce ve Ingilizce yazimlari okur', () => {
   const cases: [string, number][] = [
@@ -29,4 +29,13 @@ test('kiyas araligi: bu ay ise gecen ayin ayni donemi', () => {
   assert.deepEqual(compareRange('2026-11', '2026-11-06'), { from: '2026-10-01', to: '2026-10-06', partial: true });
   assert.deepEqual(compareRange('2026-10', '2026-11-06'), { from: '2026-09-01', to: '2026-09-31', partial: false });
   assert.deepEqual(compareRange('2026-01', '2026-01-31'), { from: '2025-12-01', to: '2025-12-31', partial: true });
+});
+
+test('csvCell formulu etkisizlestirir ve ayiraclari tirnaklar', () => {
+  assert.equal(csvCell('=HYPERLINK("x")'), `"'=HYPERLINK(""x"")"`);
+  assert.equal(csvCell('+1'), "'+1");
+  assert.equal(csvCell('@SUM(A1)'), "'@SUM(A1)");
+  assert.equal(csvCell('a;b'), '"a;b"');
+  assert.equal(csvCell('Market'), 'Market');
+  assert.equal(csvCell('1.234,56'), '1.234,56');
 });

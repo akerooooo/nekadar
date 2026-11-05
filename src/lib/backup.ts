@@ -1,5 +1,5 @@
 import { convertLegacy, db, type Budget, type Category, type Goal, type Meta, type Transaction } from '../db';
-import { toISODate } from './format';
+import { csvCell, toISODate } from './format';
 import type { RecurringRule } from './recurring';
 
 interface BackupFile {
@@ -59,7 +59,6 @@ export async function exportJSON() {
 export async function exportCSV() {
   const cats = new Map((await db.cats.toArray()).map((c) => [c.id, c.name]));
   const txs = (await db.entries.toArray()).sort((a, b) => a.date.localeCompare(b.date));
-  const esc = (s: string) => (/[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
   const rows = [
     ['Tarih', 'Tür', 'Kategori', 'Tutar', 'Not'],
     ...txs.map((t) => [
@@ -71,7 +70,7 @@ export async function exportCSV() {
     ]),
   ];
   // Turkce Excel ; ayiraci ve BOM ile dogru acar
-  const csv = '﻿' + rows.map((r) => r.map(esc).join(';')).join('\r\n');
+  const csv = '﻿' + rows.map((r) => r.map(csvCell).join(';')).join('\r\n');
   await deliverFile(`nekadar-${toISODate(new Date())}.csv`, new Blob([csv], { type: 'text/csv;charset=utf-8' }));
 }
 

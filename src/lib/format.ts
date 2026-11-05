@@ -70,3 +70,9 @@ export function compareRange(month: string, todayIso: string): { from: string; t
   const partial = todayIso.startsWith(month);
   return { from: `${prev}-01`, to: partial ? `${prev}-${todayIso.slice(8)}` : `${prev}-31`, partial };
 }
+
+/** CSV hucresi: ; " ve satir sonu tirnaklanir; = + - @ ile baslayan metin Excel'de formul olarak calismasin diye ' ile baslar */
+export function csvCell(s: string): string {
+  const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+  return /[;"\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
