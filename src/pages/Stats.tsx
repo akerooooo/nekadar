@@ -123,7 +123,7 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
               axisLine={false}
               fontSize={11}
               width={56}
-              tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}B ₺` : `${v} ₺`)}
+              tickFormatter={(v: number) => (v >= 1000 ? `${(v / 1000).toLocaleString('tr-TR', { maximumFractionDigits: 1 })}B ₺` : `${v} ₺`)}
             />
             <Tooltip formatter={(v) => formatTL(Number(v))} cursor={{ fill: 'var(--hover)' }} />
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
@@ -146,7 +146,7 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
               <dd>{formatTL(yearly.expense)}</dd>
             </div>
             <div>
-              <dt>Biriken</dt>
+              <dt>Net</dt>
               <dd className={yearly.balance < 0 ? 'neg' : ''}>{formatTL(yearly.balance)}</dd>
             </div>
             <div>
