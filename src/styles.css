@@ -582,15 +582,35 @@ h1 {
   font-weight: 500;
 }
 
-.amount-field input {
-  border: none;
-  background: none;
+/* Kutu yazinin genisliginde: gizli kopya (::after) genisligi belirler, boylece ₺ ile birlikte tam ortalanir */
+.amount-field .amount-size {
+  display: inline-grid;
+  max-width: calc(100% - 40px);
+  color: var(--ink);
   font-size: 48px;
   font-weight: 600;
   letter-spacing: -0.045em;
+}
+
+.amount-size::after,
+.amount-size input {
+  grid-area: 1 / 1;
+  font: inherit;
+  letter-spacing: inherit;
+  padding: 0 2px;
+}
+
+.amount-size::after {
+  content: attr(data-value);
+  visibility: hidden;
+  white-space: pre;
+}
+
+.amount-size input {
+  border: none;
+  background: none;
   width: 100%;
-  max-width: 240px;
-  padding: 0;
+  min-width: 0;
 }
 
 .scan-btn {
@@ -1072,4 +1092,12 @@ h1 {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.chips.kinds li {
+  padding: 0;
+}
+
+.chips.kinds .chip-main {
+  padding: 7px 13px;
 }

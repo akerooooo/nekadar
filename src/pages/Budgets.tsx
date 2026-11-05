@@ -12,16 +12,8 @@ import {
 } from '../lib/data';
 import { formatTL, parseAmount } from '../lib/format';
 import { CategoryIcon } from '../lib/icons';
-import Subs from './Subs';
 
-interface Props {
-  month: string;
-  setMonth: (m: string) => void;
-  toast: (m: string) => void;
-}
-
-export default function Budgets({ month, setMonth, toast }: Props) {
-  const [view, setView] = useState<'limits' | 'subs'>('limits');
+export default function Budgets({ month, setMonth }: { month: string; setMonth: (m: string) => void }) {
   const cats = useCategories().filter((c) => c.type === 'expense');
   const budgets = useBudgets();
   const txs = useMonthTransactions(month);
@@ -51,18 +43,8 @@ export default function Budgets({ month, setMonth, toast }: Props) {
     <>
       <header className="page-head">
         <h1>Bütçe</h1>
-        {view === 'limits' && <MonthPicker month={month} setMonth={setMonth} />}
+        <MonthPicker month={month} setMonth={setMonth} />
       </header>
-
-      <div className="segmented">
-        <button className={view === 'limits' ? 'on' : ''} onClick={() => setView('limits')}>Limitler</button>
-        <button className={view === 'subs' ? 'on' : ''} onClick={() => setView('subs')}>Abonelikler</button>
-      </div>
-
-      {view === 'subs' ? (
-        <Subs toast={toast} />
-      ) : (
-        <>
 
       <section className="hero">
         {editing === 'total' ? (
@@ -168,8 +150,6 @@ export default function Budgets({ month, setMonth, toast }: Props) {
           );
         })}
       </ul>
-        </>
-      )}
     </>
   );
 }

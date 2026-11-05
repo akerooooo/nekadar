@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Bell, ChevronRight, CloudCheck, CloudUpload, LogIn, LogOut, UserX } from 'lucide-react';
 import { db } from '../db';
@@ -11,7 +11,19 @@ export default function Account({ toast }: { toast: (m: string) => void }) {
   const email = useLiveQuery(async () => (await db.meta.get('syncEmail'))?.value ?? null, [], null);
   const pending = useLiveQuery(() => db.outbox.count(), [], 0);
   const pushOn = useLiveQuery(async () => !!(await db.meta.get('pushOn')), [], false);
+  const firstSync = useLiveQuery(async () => !!(await db.meta.get('syncBusy')), [], false);
   const [busy, setBusy] = useState(false);
+  // Firebase'i Ayarlar acilinca onceden yukle: dokununca Google penceresi hemen acilsin.
+  // Beklerse iPhone pencereyi engeller ve daha yavas yonlendirmeye dusulur.
+  const [sync, setSync] = useState<Awaited<ReturnType<typeof loadSync>> | null>(null);
+  useEffect(() => {
+    loadSync()
+      .then((m) => {
+        m.init();
+        setSync(m);
+      })
+      .catch(console.error);
+  }, []);
 
   async function act(fn: () => Promise<void>, ok: string) {
     setBusy(true);
@@ -47,9 +59,9 @@ export default function Account({ toast }: { toast: (m: string) => void }) {
         </p>
         <ul className="list actions">
           <li>
-            <button className="row" disabled={busy} onClick={() => act(async () => (await loadSync()).signIn(), 'Giriş yapıldı')}>
+            <button className="row" disabled={busy || !sync} onClick={() => act(() => sync!.signIn(), 'Giriş yapıldı')}>
               <LogIn size={18} strokeWidth={1.75} />
-              <span className="row-text">Google ile giriş yap</span>
+              <span className="row-text">{!sync ? 'Hazırlanıyor…' : busy ? 'Giriş yapılıyor…' : 'Google ile giriş yap'}</span>
               <ChevronRight size={16} strokeWidth={1.75} className="muted" />
             </button>
           </li>
@@ -70,7 +82,11 @@ export default function Account({ toast }: { toast: (m: string) => void }) {
         <span className="row-text">
           <span>{email}</span>
           <span className="muted small">
-            {pending ? `${pending} değişiklik eşitlenmeyi bekliyor` : 'Tüm cihazlarınla eşitlendi'}
+            {firstSync
+              ? 'Kayıtların buluta taşınıyor…'
+              : pending
+                ? `${pending} değişiklik eşitlenmeyi bekliyor`
+                : 'Tüm cihazlarınla eşitlendi'}
           </span>
         </span>
       </p>

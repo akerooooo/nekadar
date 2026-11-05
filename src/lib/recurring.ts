@@ -8,10 +8,17 @@ export interface RecurringRule {
   amount: number;
   categoryId: string;
   note: string; // abonelik adi (bos olabilir)
+  kind?: string; // Abonelik, Kira, Maas, Burs...
   freq: Freq;
   next: string; // siradaki odeme tarihi, YYYY-MM-DD
   updatedAt?: number;
 }
+
+/** Tekrarlayan kayit turleri; secilince adi bos olan kayda ad olur */
+export const KINDS = {
+  expense: ['Abonelik', 'Kira', 'Fatura', 'Kredi / taksit', 'Aidat', 'Diğer'],
+  income: ['Maaş', 'Burs', 'Kira geliri', 'Emekli maaşı', 'Diğer'],
+} as const;
 
 export const FREQ_LABEL: Record<Freq, string> = { weekly: 'Haftalık', monthly: 'Aylık', yearly: 'Yıllık' };
 

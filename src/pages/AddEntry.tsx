@@ -5,7 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { formatDay, formatTL, monthRange, parseAmount, toISODate, today } from '../lib/format';
 import { ScanLine } from 'lucide-react';
 import { CategoryIcon } from '../lib/icons';
-import { advance, FREQ_LABEL, startDate, type Freq } from '../lib/recurring';
+import { advance, FREQ_LABEL, KINDS, startDate, type Freq } from '../lib/recurring';
 
 const ScanReceipt = lazy(() => import('./ScanReceipt'));
 
@@ -27,6 +27,7 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
   const [date, setDate] = useState(today());
   const [note, setNote] = useState('');
   const [repeat, setRepeat] = useState<Freq | null>(null);
+  const [kind, setKind] = useState<string>('');
   const [scanning, setScanning] = useState(false);
   // Son 90 gunde en cok kullanilan kategoriler once
   const usage = useLiveQuery(
@@ -64,19 +65,23 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
   function switchType(t: TxType) {
     setType(t);
     setCategoryId(null);
+    setKind('');
   }
 
   async function save() {
     const value = parseAmount(amount);
     if (!value || value <= 0) return setError('Geçerli bir tutar gir.');
     if (categoryId == null || !visibleCats.some((c) => c.id === categoryId)) return setError('Bir kategori seç.');
-    const record = { type, amount: value, categoryId, date, note: note.trim() };
+    if (repeat && !kind) return setError(type === 'expense' ? 'Ne tür bir ödeme olduğunu seç.' : 'Ne tür bir gelir olduğunu seç.');
+    // Tekrarlayan kayitta not bossa tur adi kullanilir ("Kira", "Burs")
+    const name = note.trim() || (repeat && kind !== 'Diğer' ? kind : '');
+    const record = { type, amount: value, categoryId, date, note: name };
     if (draft.id != null) await db.entries.update(draft.id, record);
     else await db.entries.add({ ...record, createdAt: Date.now() });
     if (draft.id == null && repeat) {
       const { type: t, amount: a, categoryId: c, note: n } = record;
       // Bu kayit ilk odeme; kural bir sonrakinden baslar
-      await db.subs.add({ type: t, amount: a, categoryId: c, note: n, freq: repeat, next: advance(startDate(date, repeat), repeat) });
+      await db.subs.add({ type: t, amount: a, categoryId: c, note: n, kind, freq: repeat, next: advance(startDate(date, repeat), repeat) });
     }
     onSaved(await budgetMessage(type, categoryId, date, draft.id != null ? 'Güncellendi' : 'Kaydedildi'), date);
   }
@@ -103,10 +108,12 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
 
         <label className="amount-field">
           <span>₺</span>
-          <input
+          <span className="amount-size" data-value={amount || '0,00'}>
+            <input
             ref={amountRef}
             inputMode="decimal"
             placeholder="0,00"
+            size={1}
             value={amount}
             onChange={(e) => {
               setAmount(e.target.value);
@@ -114,6 +121,7 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
             }}
             aria-label="Tutar"
           />
+          </span>
         </label>
 
         {type === 'expense' && draft.id == null && (
@@ -153,7 +161,7 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
           </label>
           {draft.id == null && (
             <label className="toggle-row">
-              <span>Tekrarla (abonelik, kira, maaş…)</span>
+              <span>{type === 'expense' ? 'Tekrarlayan ödeme' : 'Tekrarlayan gelir'}</span>
               <input
                 type="checkbox"
                 role="switch"
@@ -165,6 +173,23 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
         </div>
         {repeat && (
           <>
+            <ul className="chips kinds" role="radiogroup" aria-label="Tür">
+              {KINDS[type].map((k) => (
+                <li key={k} className={kind === k ? 'on' : ''}>
+                  <button
+                    className="chip-main"
+                    role="radio"
+                    aria-checked={kind === k}
+                    onClick={() => {
+                      setKind(k);
+                      setError('');
+                    }}
+                  >
+                    {k}
+                  </button>
+                </li>
+              ))}
+            </ul>
             <div className="segmented">
               {(Object.keys(FREQ_LABEL) as Freq[]).map((f) => (
                 <button key={f} className={repeat === f ? 'on' : ''} onClick={() => setRepeat(f)}>
@@ -173,7 +198,7 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
               ))}
             </div>
             <p className="muted small">
-              Sonraki: {formatDay(advance(startDate(date, repeat), repeat))}. Bütçe → Abonelikler'den düzenleyebilirsin.
+              Sonraki: {formatDay(advance(startDate(date, repeat), repeat))}. Not'a ad yazabilirsin (ör. Netflix). Ayarlar → Tekrarlayan kayıtlar'dan düzenlenir.
             </p>
           </>
         )}

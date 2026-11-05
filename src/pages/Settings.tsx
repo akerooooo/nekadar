@@ -6,6 +6,7 @@ import { exportCSV, exportJSON, getLastBackup, importJSON } from '../lib/backup'
 import { useCategories } from '../lib/data';
 import { cloudEnabled } from '../lib/cloud';
 import Account from '../components/Account';
+import Subs from './Subs';
 import { CategoryIcon, PALETTE, PICKABLE_ICONS } from '../lib/icons';
 
 export default function Settings({ toast }: { toast: (m: string) => void }) {
@@ -248,6 +249,8 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
           )}
         </div>
       </section>
+
+      <Subs toast={toast} />
 
       <section className="block">
         <h2 className="block-title">Hakkında</h2>

@@ -97,8 +97,16 @@ export async function enablePush() {
 async function start(user: User) {
   stopListeners();
   uid = user.uid;
-  if ((await db.meta.get('syncUid'))?.value !== uid) await firstSync(uid);
+  // Hesap hemen gorunsun; ilk eşitleme arkadan gelir
   await db.meta.put({ key: 'syncEmail', value: user.email ?? '' });
+  if ((await db.meta.get('syncUid'))?.value !== uid) {
+    await db.meta.put({ key: 'syncBusy', value: '1' });
+    try {
+      await firstSync(uid);
+    } finally {
+      await db.meta.delete('syncBusy');
+    }
+  }
   syncState.on = true;
   for (const name of TABLES) {
     const since = Number((await db.meta.get(`pull:${name}`))?.value ?? 0);
@@ -122,10 +130,10 @@ async function start(user: User) {
 /** Bu cihazda ilk giris: once buluttakini cek, sonra yalnizca yerelde daha yeni olanlari gonder */
 async function firstSync(id: string) {
   const remote = new Map<string, number>();
-  for (const name of TABLES) {
-    const snap = await getDocs(collection(fs, 'users', id, name));
-    snap.docs.forEach((d) => remote.set(`${name}/${d.id}`, d.data().updatedAt ?? 0));
-    await apply(name, snap.docs);
+  const snaps = await Promise.all(TABLES.map((name) => getDocs(collection(fs, 'users', id, name))));
+  for (const [i, name] of TABLES.entries()) {
+    snaps[i].docs.forEach((d) => remote.set(`${name}/${d.id}`, d.data().updatedAt ?? 0));
+    await apply(name, snaps[i].docs);
   }
   await db.transaction('rw', [db.outbox, ...TABLES.map((n) => db.table(n))], async () => {
     await db.outbox.clear();
@@ -214,6 +222,6 @@ async function stop() {
   await db.transaction('rw', [db.outbox, db.meta], async () => {
     await db.outbox.clear();
     await db.meta.where('key').startsWith('pull:').delete();
-    await db.meta.bulkDelete(['syncUid', 'syncEmail', 'pushOn']);
+    await db.meta.bulkDelete(['syncUid', 'syncEmail', 'pushOn', 'syncBusy']);
   });
 }

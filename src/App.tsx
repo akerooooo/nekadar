@@ -41,7 +41,7 @@ export default function App() {
             <Stats month={month} setMonth={setMonth} />
           </Suspense>
         )}
-        {tab === 'budgets' && <Budgets month={month} setMonth={setMonth} toast={toast.show} />}
+        {tab === 'budgets' && <Budgets month={month} setMonth={setMonth} />}
         {tab === 'settings' && <Settings toast={toast.show} />}
       </main>
 
