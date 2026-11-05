@@ -10,10 +10,26 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
   const txs = useMonthTransactions(month);
   const cats = useCategoryMap();
   const { expense } = totals(txs);
+  const prevTxs = useMonthTransactions(shiftMonth(month, -1));
+  const prevTotal = totals(prevTxs).expense;
+  const prevByCat = expenseByCategory(prevTxs);
 
   const slices = [...expenseByCategory(txs)]
     .map(([id, value]) => ({ id, value, cat: cats.get(id) }))
     .sort((a, b) => b.value - a.value);
+
+  const year = month.slice(0, 4);
+  const yearly = useLiveQuery(
+    async () => {
+      const all = await db.transactions.where('date').between(`${year}-01-01`, `${year}-12-31`, true, true).toArray();
+      const t = totals(all);
+      const byCat = [...expenseByCategory(all)].sort((a, b) => b[1] - a[1]);
+      // Ortalama yalnizca kaydi olan aylara bolunur; bos aylar ortalamayi dusurmesin
+      const months = new Set(all.map((x) => x.date.slice(0, 7))).size || 1;
+      return { ...t, average: t.expense / months, top: byCat[0] };
+    },
+    [year],
+  );
 
   const trend = useLiveQuery(
     async () => {
@@ -69,6 +85,7 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
                 <b>{formatTLShort(expense)}</b>
               </div>
             </div>
+            {prevTotal > 0 && <p className="change center">{changeText(expense, prevTotal)}</p>}
             <ul className="legend">
               {slices.map((s) => (
                 <li key={s.id}>
@@ -77,6 +94,9 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
                   </span>
                   <span className="legend-name">
                     {s.cat?.name ?? 'Silinmiş'}
+                    {prevByCat.get(s.id) ? (
+                      <span className="muted small">{changeText(s.value, prevByCat.get(s.id)!)}</span>
+                    ) : null}
                   </span>
                   <span className="muted small">{s.value / expense < 0.01 ? '<%1' : `%${Math.round((s.value / expense) * 100)}`}</span>
                   <b>{formatTL(s.value)}</b>
@@ -106,6 +126,45 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
           </BarChart>
         </ResponsiveContainer>
       </section>
+
+      {yearly && (
+        <section className="block">
+          <h2 className="block-title">{year} yılı</h2>
+          <dl className="year-grid">
+            <div>
+              <dt>Gelir</dt>
+              <dd>{formatTL(yearly.income)}</dd>
+            </div>
+            <div>
+              <dt>Gider</dt>
+              <dd>{formatTL(yearly.expense)}</dd>
+            </div>
+            <div>
+              <dt>Biriken</dt>
+              <dd className={yearly.balance < 0 ? 'neg' : ''}>{formatTL(yearly.balance)}</dd>
+            </div>
+            <div>
+              <dt>Aylık ortalama gider</dt>
+              <dd>{formatTL(yearly.average)}</dd>
+            </div>
+            {yearly.top && (
+              <div className="wide">
+                <dt>En çok harcanan</dt>
+                <dd>
+                  {cats.get(yearly.top[0])?.name ?? 'Silinmiş'}, {formatTL(yearly.top[1])}
+                </dd>
+              </div>
+            )}
+          </dl>
+        </section>
+      )}
     </>
   );
+}
+
+/** "Geçen aydan %12 fazla" gibi kisa karsilastirma */
+function changeText(current: number, previous: number) {
+  const pct = Math.round(((current - previous) / previous) * 100);
+  if (pct === 0) return 'Geçen ayla aynı';
+  return `Geçen aydan %${Math.abs(pct)} ${pct > 0 ? 'fazla' : 'az'}`;
 }

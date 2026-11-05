@@ -6,7 +6,7 @@ import Settings from './pages/Settings';
 import AddEntry, { type EntryDraft } from './pages/AddEntry';
 import { Toast, useToast } from './components/Toast';
 import InstallHint from './components/InstallHint';
-import { monthKey } from './lib/format';
+import { monthKey, monthLabel } from './lib/format';
 
 // Grafik kutuphanesi buyuk; sadece Grafik sekmesi acilinca yuklenir
 const Stats = lazy(() => import('./pages/Stats'));
@@ -61,9 +61,13 @@ export default function App() {
         <AddEntry
           draft={editor}
           onClose={() => setEditor(null)}
-          onSaved={(msg) => {
+          onSaved={(msg, date) => {
             setEditor(null);
-            toast.show(msg);
+            // Baska aya kaydedildiyse o aya gec ve hangi ay oldugunu soyle
+            if (date && date.slice(0, 7) !== month) {
+              setMonth(date.slice(0, 7));
+              toast.show(`${msg}: ${monthLabel(date.slice(0, 7))}`);
+            } else toast.show(msg);
           }}
         />
       )}

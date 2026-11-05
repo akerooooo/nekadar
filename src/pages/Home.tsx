@@ -3,7 +3,7 @@ import { CircleAlert, HardDriveDownload, ReceiptText } from 'lucide-react';
 import MonthPicker from '../components/MonthPicker';
 import { db, type Transaction } from '../db';
 import { getLastBackup } from '../lib/backup';
-import { expenseByCategory, totals, useBudgets, useCategoryMap, useMonthTransactions } from '../lib/data';
+import { expenseByCategory, totals, useBudgets, useCategoryMap, useMonthTransactions, useTotalBudget } from '../lib/data';
 import { formatDay, formatTL } from '../lib/format';
 import { CategoryIcon } from '../lib/icons';
 import type { EntryDraft } from './AddEntry';
@@ -32,13 +32,18 @@ export default function Home({ month, setMonth, onEdit }: Props) {
 
   const needsBackup = useLiveQuery(
     async () => {
-      if ((await db.transactions.count()) < 15) return false;
       const last = await getLastBackup();
-      return !last || Date.now() - last.getTime() > 30 * 24 * 3600 * 1000;
+      if (!last) return (await db.transactions.count()) >= 5 ? 'Henüz yedek almadın. Ayarlar\'dan yedek al.' : null;
+      const newSince = await db.transactions.filter((t) => t.createdAt > last.getTime()).count();
+      const due = newSince >= 20 || (newSince > 0 && Date.now() - last.getTime() > 7 * 24 * 3600 * 1000);
+      return due ? `Son yedekten sonra ${newSince} yeni kayıt var. Ayarlar'dan yedek al.` : null;
     },
     [],
-    false,
+    null,
   );
+
+  const totalBudget = useTotalBudget();
+  const totalRatio = totalBudget > 0 ? expense / totalBudget : 0;
 
   const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
   const groups = new Map<string, Transaction[]>();
@@ -77,8 +82,18 @@ export default function Home({ month, setMonth, onEdit }: Props) {
         </dl>
       </section>
 
-      {(warnings.length > 0 || needsBackup) && (
+      {(warnings.length > 0 || needsBackup || totalRatio >= 0.8) && (
         <ul className="notices">
+          {totalRatio >= 0.8 && (
+            <li className={totalRatio >= 1 ? 'over' : ''}>
+              <CircleAlert size={16} strokeWidth={1.75} />
+              <span>
+                {totalRatio >= 1
+                  ? `Aylık toplam bütçeni ${formatTL(expense - totalBudget)} aştın`
+                  : `Aylık toplam bütçe: %${Math.round(totalRatio * 100)} kullanıldı`}
+              </span>
+            </li>
+          )}
           {warnings.map(({ b, spent, cat }) => (
             <li key={b.categoryId} className={spent >= b.limit ? 'over' : ''}>
               <CircleAlert size={16} strokeWidth={1.75} />
@@ -86,14 +101,14 @@ export default function Home({ month, setMonth, onEdit }: Props) {
                 {cat!.name}{' '}
                 {spent >= b.limit
                   ? `bütçesini ${formatTL(spent - b.limit)} aştın`
-                  : `bütçesinin %${Math.round((spent / b.limit) * 100)}'ini kullandın`}
+                  : `bütçesi: %${Math.round((spent / b.limit) * 100)} kullanıldı`}
               </span>
             </li>
           ))}
           {needsBackup && (
             <li>
               <HardDriveDownload size={16} strokeWidth={1.75} />
-              <span>Bir aydır yedek almadın. Ayarlar'dan yedek alabilirsin.</span>
+              <span>{needsBackup}</span>
             </li>
           )}
         </ul>

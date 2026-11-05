@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Share, X } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Share, TriangleAlert, X } from 'lucide-react';
+import { db } from '../db';
 
 const KEY = 'nekadar.installHintClosed';
 
@@ -22,7 +24,20 @@ export default function InstallHint() {
       return false;
     }
   });
-  if (closed || isStandalone() || !isIOS()) return null;
+  const hasData = useLiveQuery(async () => (await db.transactions.count()) > 0, [], false);
+  if (isStandalone() || !isIOS()) return null;
+  // Kayit varken Safari'de kullanmak veri kaybi riski: bu uyari kapatilamaz
+  if (hasData)
+    return (
+      <div className="install-hint warn" role="alert">
+        <TriangleAlert size={18} strokeWidth={1.75} />
+        <p>
+          Safari'de verilerin 7 gün açılmazsa silinebilir. <b>Paylaş</b> düğmesinden <b>Ana Ekrana Ekle</b>'yi seç ve
+          uygulamayı oradan aç. Önce Ayarlar'dan yedek al: Safari'deki kayıtlar ana ekrandaki uygulamaya geçmez.
+        </p>
+      </div>
+    );
+  if (closed) return null;
   return (
     <div className="install-hint">
       <Share size={18} strokeWidth={1.75} />

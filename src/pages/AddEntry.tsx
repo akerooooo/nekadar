@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { db, type TxType } from '../db';
 import { useCategories } from '../lib/data';
-import { formatTL, monthRange, parseAmount, today } from '../lib/format';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { formatTL, monthRange, parseAmount, toISODate, today } from '../lib/format';
 import { ScanLine } from 'lucide-react';
 import { CategoryIcon } from '../lib/icons';
 
@@ -14,7 +15,7 @@ export interface EntryDraft {
 interface Props {
   draft: EntryDraft;
   onClose: () => void;
-  onSaved: (message: string) => void;
+  onSaved: (message: string, date?: string) => void;
 }
 
 export default function AddEntry({ draft, onClose, onSaved }: Props) {
@@ -24,7 +25,19 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [date, setDate] = useState(today());
   const [note, setNote] = useState('');
+  const [repeat, setRepeat] = useState(false);
   const [scanning, setScanning] = useState(false);
+  // Son 90 gunde en cok kullanilan kategoriler once
+  const usage = useLiveQuery(
+    async () => {
+      const from = toISODate(new Date(Date.now() - 90 * 24 * 3600 * 1000));
+      const m = new Map<number, number>();
+      await db.transactions.where('date').aboveOrEqual(from).each((t) => m.set(t.categoryId, (m.get(t.categoryId) ?? 0) + 1));
+      return m;
+    },
+    [],
+    new Map<number, number>(),
+  );
   const [error, setError] = useState('');
   const amountRef = useRef<HTMLInputElement>(null);
 
@@ -43,7 +56,9 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
     });
   }, [draft.id]);
 
-  const visibleCats = categories.filter((c) => c.type === type);
+  const visibleCats = categories
+    .filter((c) => c.type === type)
+    .sort((a, b) => (usage.get(b.id!) ?? 0) - (usage.get(a.id!) ?? 0));
 
   function switchType(t: TxType) {
     setType(t);
@@ -57,7 +72,11 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
     const record = { type, amount: value, categoryId, date, note: note.trim() };
     if (draft.id != null) await db.transactions.update(draft.id, record);
     else await db.transactions.add({ ...record, createdAt: Date.now() });
-    onSaved(await budgetMessage(type, categoryId, date, draft.id != null ? 'Güncellendi' : 'Kaydedildi'));
+    if (draft.id == null && repeat) {
+      const { type: t, amount: a, categoryId: c, note: n } = record;
+      await db.recurring.add({ type: t, amount: a, categoryId: c, note: n, day: Math.min(Number(date.slice(8)), 28), lastMonth: date.slice(0, 7) });
+    }
+    onSaved(await budgetMessage(type, categoryId, date, draft.id != null ? 'Güncellendi' : 'Kaydedildi'), date);
   }
 
   async function remove() {
@@ -130,7 +149,16 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
             <span>Not</span>
             <input placeholder="İsteğe bağlı" value={note} onChange={(e) => setNote(e.target.value)} maxLength={80} />
           </label>
+          {draft.id == null && (
+            <label className="toggle-row">
+              <span>Her ay tekrarla</span>
+              <input type="checkbox" role="switch" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
+            </label>
+          )}
         </div>
+        {repeat && (
+          <p className="muted small">Her ayın {Math.min(Number(date.slice(8)), 28)}. günü bu kayıt kendiliğinden eklenir.</p>
+        )}
 
         {error && <p className="error">{error}</p>}
 
@@ -175,6 +203,6 @@ async function budgetMessage(type: TxType, categoryId: number, date: string, bas
   const cat = await db.categories.get(categoryId);
   const pct = Math.round((spent / budget.limit) * 100);
   if (spent >= budget.limit) return `${cat?.name} bütçesi aşıldı (${formatTL(spent)} / ${formatTL(budget.limit)})`;
-  if (spent >= budget.limit * 0.8) return `${cat?.name} bütçesinin %${pct}'i kullanıldı`;
+  if (spent >= budget.limit * 0.8) return `${cat?.name} bütçesi: %${pct} kullanıldı`;
   return base;
 }

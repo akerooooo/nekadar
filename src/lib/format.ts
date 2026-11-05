@@ -43,7 +43,13 @@ export function parseAmount(input: string): number {
   if (!s) return NaN;
   const lastComma = s.lastIndexOf(',');
   const lastDot = s.lastIndexOf('.');
-  if (lastComma > lastDot) {
+  const separators = s.match(/[.,]/g)?.length ?? 0;
+  if (/^\d{1,3}([.,])\d{3}(\1\d{3})+$/.test(s)) {
+    // "1.000.000" / "1,000,000" -> hepsi binlik ayirici
+    s = s.replace(/[.,]/g, '');
+  } else if (separators > 1 && (lastComma === -1 || lastDot === -1)) {
+    return NaN; // "12,5,3" gibi anlamsiz giris
+  } else if (lastComma > lastDot) {
     s = s.replace(/\./g, '').replace(',', '.');
   } else if (lastDot > lastComma && lastComma !== -1) {
     s = s.replace(/,/g, '');

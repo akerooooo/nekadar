@@ -1,6 +1,7 @@
-import { db, type Budget, type Category, type Transaction } from '../db';
+import { db, type Budget, type Category, type Meta, type Transaction } from '../db';
 import { toISODate } from './format';
 import { normalizeColor, normalizeIcon } from './icons';
+import type { RecurringRule } from './recurring';
 
 interface BackupFile {
   app: 'nekadar';
@@ -9,6 +10,8 @@ interface BackupFile {
   categories: Category[];
   transactions: Transaction[];
   budgets: Budget[];
+  recurring?: RecurringRule[]; // eski yedeklerde yok
+  meta?: Meta[]; // toplam butce vb.; lastBackup haric
 }
 
 /** iPhone'da Paylas menusunu acar (Dosyalar'a kaydet, WhatsApp, Mail...), olmazsa indirir */
@@ -44,6 +47,8 @@ export async function exportJSON() {
     categories: await db.categories.toArray(),
     transactions: await db.transactions.toArray(),
     budgets: await db.budgets.toArray(),
+    recurring: await db.recurring.toArray(),
+    meta: await db.meta.where('key').notEqual('lastBackup').toArray(),
   };
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   await deliverFile(`nekadar-yedek-${toISODate(new Date())}.json`, blob);
@@ -90,8 +95,16 @@ export async function importJSON(file: File): Promise<number> {
     throw new Error('Dosya okunamadı. Nekadar yedek dosyası (.json) seçtiğinden emin ol.');
   }
   if (!isBackup(parsed)) throw new Error('Bu dosya bir Nekadar yedeği değil.');
-  await db.transaction('rw', [db.categories, db.transactions, db.budgets], async () => {
-    await Promise.all([db.categories.clear(), db.transactions.clear(), db.budgets.clear()]);
+  await db.transaction('rw', [db.categories, db.transactions, db.budgets, db.recurring, db.meta], async () => {
+    await Promise.all([
+      db.categories.clear(),
+      db.transactions.clear(),
+      db.budgets.clear(),
+      db.recurring.clear(),
+      db.meta.where('key').notEqual('lastBackup').delete(),
+    ]);
+    await db.recurring.bulkAdd(parsed.recurring ?? []);
+    await db.meta.bulkPut((parsed.meta ?? []).filter((m) => m.key !== 'lastBackup'));
     // Eski surum yedeklerindeki emoji ikonlari yeni ikonlara cevir
     await db.categories.bulkAdd(
       parsed.categories.map((c) => ({ ...c, icon: normalizeIcon(c.icon), color: normalizeColor(c.color) })),

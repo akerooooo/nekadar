@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import { normalizeColor, normalizeIcon } from './lib/icons';
+import type { RecurringRule } from './lib/recurring';
 
 export type TxType = 'expense' | 'income';
 
@@ -36,6 +37,7 @@ export const db = new Dexie('nekadar') as Dexie & {
   categories: EntityTable<Category, 'id'>;
   budgets: EntityTable<Budget, 'categoryId'>;
   meta: EntityTable<Meta, 'key'>;
+  recurring: EntityTable<RecurringRule, 'id'>;
 };
 
 db.version(1).stores({
@@ -62,6 +64,29 @@ db.version(2)
         c.color = normalizeColor(c.color);
       }),
   );
+
+// v3: tekrarlayan kayitlar; silinmis kategoride kalan kayitlar "Diger"e tasinir
+db.version(3)
+  .stores({
+    transactions: '++id, type, categoryId, date',
+    categories: '++id, type',
+    budgets: 'categoryId',
+    meta: 'key',
+    recurring: '++id',
+  })
+  .upgrade(async (tx) => {
+    const cats: Category[] = await tx.table('categories').toArray();
+    const ids = new Set(cats.map((c) => c.id));
+    const orphans: Transaction[] = await tx.table('transactions').filter((t) => !ids.has(t.categoryId)).toArray();
+    for (const type of ['expense', 'income'] as const) {
+      const list = orphans.filter((t) => t.type === type);
+      if (!list.length) continue;
+      const name = type === 'expense' ? 'Diğer' : 'Diğer gelir';
+      let target = cats.find((c) => c.type === type && c.name === name)?.id;
+      if (target == null) target = await tx.table('categories').add({ ...DEFAULT_CATEGORIES.find((c) => c.name === name)! });
+      await tx.table('transactions').where('id').anyOf(list.map((t) => t.id!)).modify({ categoryId: target });
+    }
+  });
 
 export const DEFAULT_CATEGORIES: Omit<Category, 'id'>[] = [
   { name: 'Market', icon: 'cart', color: '#5b7f6b', type: 'expense' },

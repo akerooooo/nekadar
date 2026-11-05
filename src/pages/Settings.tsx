@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronRight, Download, FileSpreadsheet, Trash2, Upload, X } from 'lucide-react';
-import { db, DEFAULT_CATEGORIES, type TxType } from '../db';
+import { db, DEFAULT_CATEGORIES, type Category, type TxType } from '../db';
+import { formatTL } from '../lib/format';
 import { exportCSV, exportJSON, getLastBackup, importJSON } from '../lib/backup';
 import { useCategories } from '../lib/data';
 import { CategoryIcon, PALETTE, PICKABLE_ICONS } from '../lib/icons';
@@ -13,6 +14,14 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
   const [newName, setNewName] = useState('');
   const [newIcon, setNewIcon] = useState(PICKABLE_ICONS[0]);
   const [newType, setNewType] = useState<TxType>('expense');
+  const [newColor, setNewColor] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const recurring = useLiveQuery(() => db.recurring.toArray(), [], []);
+  const persisted = useLiveQuery(async () => (await navigator.storage?.persisted?.()) ?? false, [], false);
+  const catMap = new Map(categories.map((c) => [c.id, c]));
+  // Duzenlenen varsayilan kategorinin ikonu secim listesinde yoksa basa eklenir
+  const editIcon = editingId != null ? catMap.get(editingId)?.icon : undefined;
+  const iconChoices = editIcon && !PICKABLE_ICONS.includes(editIcon) ? [editIcon, ...PICKABLE_ICONS] : PICKABLE_ICONS;
 
   async function run(fn: () => Promise<void>, ok: string) {
     try {
@@ -34,34 +43,66 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
     }
   }
 
-  async function addCategory() {
+  function resetForm() {
+    setEditingId(null);
+    setNewName('');
+    setNewColor(null);
+  }
+
+  function startEdit(c: Category) {
+    setEditingId(c.id!);
+    setNewType(c.type);
+    setNewName(c.name);
+    setNewIcon(c.icon);
+    setNewColor(c.color);
+  }
+
+  async function saveCategory() {
     const name = newName.trim();
     if (!name) return;
-    const color = PALETTE[categories.length % PALETTE.length];
-    await db.categories.add({ name, icon: newIcon, color, type: newType });
-    setNewName('');
-    toast(`${name} eklendi`);
+    const color = newColor ?? PALETTE[categories.length % PALETTE.length];
+    if (editingId != null) await db.categories.update(editingId, { name, icon: newIcon, color });
+    else await db.categories.add({ name, icon: newIcon, color, type: newType });
+    toast(editingId != null ? `${name} güncellendi` : `${name} eklendi`);
+    resetForm();
   }
 
   async function removeCategory(id: number, name: string) {
+    const type = categories.find((x) => x.id === id)?.type;
+    const others = categories.filter((c) => c.id !== id && c.type === type);
+    const fallback = others.find((c) => c.name.startsWith('Diğer')) ?? others[0];
+    if (!fallback) return toast('Her türde en az bir kategori kalmalı');
     const used = await db.transactions.where('categoryId').equals(id).count();
     const msg = used
-      ? `${name} kategorisinde ${used} kayıt var. Kayıtlar "Diğer" kategorisine taşınacak. Silinsin mi?`
+      ? `${name} kategorisinde ${used} kayıt var. Kayıtlar ${fallback.name} kategorisine taşınacak. Silinsin mi?`
       : `${name} silinsin mi?`;
     if (!confirm(msg)) return;
-    const type = categories.find((x) => x.id === id)?.type;
-    const fallback = categories.find((c) => c.name.startsWith('Diğer') && c.id !== id && c.type === type);
-    await db.transaction('rw', [db.categories, db.transactions, db.budgets], async () => {
-      if (used && fallback) await db.transactions.where('categoryId').equals(id).modify({ categoryId: fallback.id });
+    await db.transaction('rw', [db.categories, db.transactions, db.budgets, db.recurring], async () => {
+      await db.transactions.where('categoryId').equals(id).modify({ categoryId: fallback.id });
+      await db.recurring.filter((r) => r.categoryId === id).modify({ categoryId: fallback.id });
       await db.budgets.delete(id);
       await db.categories.delete(id);
     });
+    if (editingId === id) resetForm();
   }
 
   async function wipe() {
     if (!confirm('Tüm kayıtlar, bütçeler ve kategoriler silinecek. Bu geri alınamaz. Emin misin?')) return;
-    await db.transaction('rw', [db.categories, db.transactions, db.budgets, db.meta], async () => {
-      await Promise.all([db.transactions.clear(), db.budgets.clear(), db.categories.clear(), db.meta.clear()]);
+    if (txCount > 0 && confirm('Silmeden önce yedek alınsın mı?')) {
+      try {
+        await exportJSON();
+      } catch {
+        return toast('Yedek alınmadı, silme iptal edildi');
+      }
+    }
+    await db.transaction('rw', [db.categories, db.transactions, db.budgets, db.meta, db.recurring], async () => {
+      await Promise.all([
+        db.transactions.clear(),
+        db.budgets.clear(),
+        db.categories.clear(),
+        db.meta.clear(),
+        db.recurring.clear(),
+      ]);
       await db.categories.bulkAdd(DEFAULT_CATEGORIES);
     });
     toast('Tüm veriler silindi');
@@ -81,6 +122,9 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
         </p>
         <p className="muted small">
           {txCount} kayıt. Son yedek: {lastBackup ? lastBackup.toLocaleDateString('tr-TR') : 'henüz alınmadı'}.
+        </p>
+        <p className="muted small">
+          Kalıcı depolama: {persisted ? 'açık' : 'kapalı. Ana ekrana ekleyip oradan açarsan verilerin daha güvende olur.'}
         </p>
         <ul className="list actions">
           <li>
@@ -119,19 +163,31 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
       <section className="block">
         <h2 className="block-title">Kategoriler</h2>
         <div className="segmented">
-          <button className={newType === 'expense' ? 'on' : ''} onClick={() => setNewType('expense')}>Gider</button>
-          <button className={newType === 'income' ? 'on' : ''} onClick={() => setNewType('income')}>Gelir</button>
+          {(['expense', 'income'] as const).map((t) => (
+            <button
+              key={t}
+              className={newType === t ? 'on' : ''}
+              onClick={() => {
+                setNewType(t);
+                resetForm();
+              }}
+            >
+              {t === 'expense' ? 'Gider' : 'Gelir'}
+            </button>
+          ))}
         </div>
 
         <ul className="chips">
           {categories
             .filter((c) => c.type === newType)
             .map((c) => (
-              <li key={c.id}>
-                <span style={{ color: c.color }}>
-                  <CategoryIcon name={c.icon} size={15} />
-                </span>
-                {c.name}
+              <li key={c.id} className={editingId === c.id ? 'on' : ''}>
+                <button className="chip-main" onClick={() => startEdit(c)} aria-label={`${c.name} kategorisini düzenle`}>
+                  <span style={{ color: c.color }}>
+                    <CategoryIcon name={c.icon} size={15} />
+                  </span>
+                  {c.name}
+                </button>
                 <button aria-label={`${c.name} kategorisini sil`} onClick={() => removeCategory(c.id!, c.name)}>
                   <X size={14} strokeWidth={1.75} />
                 </button>
@@ -139,9 +195,13 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
             ))}
         </ul>
 
-        <p className="muted small">Yeni kategori için bir simge seç ve adını yaz.</p>
+        <p className="muted small">
+          {editingId != null
+            ? 'Adını, simgesini ya da rengini değiştir.'
+            : 'Düzenlemek için bir kategoriye dokun. Yeni kategori için simge ve renk seç, adını yaz.'}
+        </p>
         <div className="icon-pick" role="radiogroup" aria-label="Kategori simgesi">
-          {PICKABLE_ICONS.map((i) => (
+          {iconChoices.map((i) => (
             <button
               key={i}
               role="radio"
@@ -154,19 +214,73 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
             </button>
           ))}
         </div>
+        <div className="color-pick" role="radiogroup" aria-label="Kategori rengi">
+          {PALETTE.map((c) => (
+            <button
+              key={c}
+              role="radio"
+              aria-checked={c === newColor}
+              aria-label={`Renk ${c}`}
+              className={c === newColor ? 'on' : ''}
+              style={{ background: c }}
+              onClick={() => setNewColor(c)}
+            />
+          ))}
+        </div>
         <div className="inline-form">
           <input
             placeholder="Kategori adı"
             value={newName}
             maxLength={20}
             onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addCategory()}
-            aria-label="Yeni kategori adı"
+            onKeyDown={(e) => e.key === 'Enter' && saveCategory()}
+            aria-label="Kategori adı"
           />
-          <button className="primary small-btn" onClick={addCategory} disabled={!newName.trim()}>
-            Ekle
+          <button className="primary small-btn" onClick={saveCategory} disabled={!newName.trim()}>
+            {editingId != null ? 'Kaydet' : 'Ekle'}
           </button>
+          {editingId != null && (
+            <button className="link" onClick={resetForm}>
+              Vazgeç
+            </button>
+          )}
         </div>
+      </section>
+
+      <section className="block">
+        <h2 className="block-title">Tekrarlayan kayıtlar</h2>
+        {recurring.length === 0 ? (
+          <p className="lead">Kira, fatura gibi her ay tekrar eden kayıtları eklerken "Her ay tekrarla"yı aç.</p>
+        ) : (
+          <ul className="list">
+            {recurring.map((r) => {
+              const c = catMap.get(r.categoryId);
+              return (
+                <li key={r.id} className="row">
+                  <span className="cat-icon" style={{ color: c?.color }}>
+                    <CategoryIcon name={c?.icon} />
+                  </span>
+                  <span className="row-text">
+                    <span>{r.note || c?.name}</span>
+                    <span className="muted small">Her ayın {r.day}. günü</span>
+                  </span>
+                  <span className={`row-amount ${r.type === 'income' ? 'pos' : ''}`}>{formatTL(r.amount)}</span>
+                  <button
+                    className="icon-btn"
+                    aria-label="Tekrarı durdur"
+                    onClick={async () => {
+                      if (!confirm('Bu kayıt artık her ay eklenmesin mi? Eklenmiş kayıtlar silinmez.')) return;
+                      await db.recurring.delete(r.id!);
+                      toast('Tekrar durduruldu');
+                    }}
+                  >
+                    <X size={16} strokeWidth={1.75} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
 
       <section className="block">
