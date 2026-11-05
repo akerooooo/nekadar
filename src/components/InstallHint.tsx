@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Share, X } from 'lucide-react';
 
 const KEY = 'nekadar.installHintClosed';
 
@@ -23,14 +24,13 @@ export default function InstallHint() {
   });
   if (closed || isStandalone() || !isIOS()) return null;
   return (
-    <div className="card hint">
-      <strong>Uygulama gibi kullan</strong>
+    <div className="install-hint">
+      <Share size={18} strokeWidth={1.75} />
       <p>
-        Safari'de alttaki <b>Paylaş</b> düğmesine (kare ve ok) dokun, sonra <b>Ana Ekrana Ekle</b>'yi seç. Böylece
-        tam ekran açılır ve verilerin kalıcı olur.
+        Uygulama gibi kullanmak için Safari'de <b>Paylaş</b> düğmesine dokun, sonra <b>Ana Ekrana Ekle</b>'yi seç.
       </p>
       <button
-        className="link"
+        aria-label="Kapat"
         onClick={() => {
           setClosed(true);
           try {
@@ -40,7 +40,7 @@ export default function InstallHint() {
           }
         }}
       >
-        Kapat
+        <X size={16} strokeWidth={1.75} />
       </button>
     </div>
   );

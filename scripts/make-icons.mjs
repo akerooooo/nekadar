@@ -1,10 +1,11 @@
-// Uygulama simgelerini (PNG) bagimliliksiz uretir: yesil zemin uzerinde beyaz halka grafik.
+// Uygulama simgelerini (PNG) bagimliliksiz uretir.
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 
-const BG = [15, 118, 110];
-const WHITE = [255, 255, 255];
-const SOFT = [153, 246, 228];
+const BG = [28, 31, 35];
+const WHITE = [250, 250, 248];
+const SAGE = [140, 176, 155];
+const ROSE = [206, 140, 156];
 
 function crc32(buf) {
   let c, crc = 0xffffffff;
@@ -50,23 +51,24 @@ function png(size, pixel) {
   ]);
 }
 
-// Birim kare (0..1) icinde bir noktanin rengi
+// Birim kare (0..1) icinde bir noktanin rengi:
+// murekkep zemin uzerinde, ana sayfadaki kategori cubugunun kucuk hali
+const SEGMENTS = [
+  [0.2, 0.52, WHITE],
+  [0.565, 0.71, SAGE],
+  [0.755, 0.83, ROSE],
+];
+function inPill(u, v, x0, x1, y0, y1) {
+  const r = (y1 - y0) / 2;
+  if (v < y0 || v > y1) return false;
+  const cy = (y0 + y1) / 2;
+  if (u >= x0 + r && u <= x1 - r) return true;
+  const cx = u < x0 + r ? x0 + r : x1 - r;
+  return Math.hypot(u - cx, v - cy) <= r;
+}
 function shade(u, v) {
-  const dx = u - 0.5;
-  const dy = v - 0.5;
-  const r = Math.hypot(dx, dy);
-  if (r < 0.17 || r > 0.31) return BG;
-  // Saat 12'den saat yonunde aci (0..1)
-  let a = Math.atan2(dx, -dy) / (2 * Math.PI);
-  if (a < 0) a += 1;
-  const gaps = [0, 0.62, 0.84]; // dilim sinirlari
-  for (const g of gaps) {
-    const d = Math.min(Math.abs(a - g), 1 - Math.abs(a - g)) * 2 * Math.PI * r;
-    if (d < 0.012) return BG;
-  }
-  if (a < 0.62) return WHITE;
-  if (a < 0.84) return SOFT;
-  return [94, 234, 212];
+  for (const [x0, x1, color] of SEGMENTS) if (inPill(u, v, x0, x1, 0.455, 0.545)) return color;
+  return BG;
 }
 
 function render(size) {

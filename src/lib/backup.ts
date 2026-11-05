@@ -1,5 +1,6 @@
 import { db, type Budget, type Category, type Transaction } from '../db';
 import { toISODate } from './format';
+import { normalizeColor, normalizeIcon } from './icons';
 
 interface BackupFile {
   app: 'nekadar';
@@ -91,7 +92,10 @@ export async function importJSON(file: File): Promise<number> {
   if (!isBackup(parsed)) throw new Error('Bu dosya bir Nekadar yedeği değil.');
   await db.transaction('rw', [db.categories, db.transactions, db.budgets], async () => {
     await Promise.all([db.categories.clear(), db.transactions.clear(), db.budgets.clear()]);
-    await db.categories.bulkAdd(parsed.categories);
+    // Eski surum yedeklerindeki emoji ikonlari yeni ikonlara cevir
+    await db.categories.bulkAdd(
+      parsed.categories.map((c) => ({ ...c, icon: normalizeIcon(c.icon), color: normalizeColor(c.color) })),
+    );
     await db.transactions.bulkAdd(parsed.transactions);
     await db.budgets.bulkAdd(parsed.budgets);
   });

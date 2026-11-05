@@ -2,6 +2,8 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { db, type TxType } from '../db';
 import { useCategories } from '../lib/data';
 import { formatTL, monthRange, parseAmount, today } from '../lib/format';
+import { ScanLine } from 'lucide-react';
+import { CategoryIcon } from '../lib/icons';
 
 const ScanReceipt = lazy(() => import('./ScanReceipt'));
 
@@ -94,7 +96,10 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
         </label>
 
         {type === 'expense' && draft.id == null && (
-          <button className="scan-btn" onClick={() => setScanning(true)}>📷 Fişten oku</button>
+          <button className="scan-btn" onClick={() => setScanning(true)}>
+            <ScanLine size={16} strokeWidth={1.75} />
+            Fişten oku
+          </button>
         )}
 
         <div className="cat-grid">
@@ -102,13 +107,15 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
             <button
               key={c.id}
               className={`cat-chip ${categoryId === c.id ? 'on' : ''}`}
-              style={categoryId === c.id ? { borderColor: c.color, background: `${c.color}1a` } : undefined}
+              aria-pressed={categoryId === c.id}
               onClick={() => {
                 setCategoryId(c.id!);
                 setError('');
               }}
             >
-              <span className="cat-chip-icon">{c.icon}</span>
+              <span className="cat-chip-icon" style={{ color: c.color }}>
+                <CategoryIcon name={c.icon} size={20} />
+              </span>
               <span>{c.name}</span>
             </button>
           ))}
@@ -167,7 +174,7 @@ async function budgetMessage(type: TxType, categoryId: number, date: string, bas
     .reduce((s, t) => s + t.amount, 0);
   const cat = await db.categories.get(categoryId);
   const pct = Math.round((spent / budget.limit) * 100);
-  if (spent >= budget.limit) return `⚠️ ${cat?.name} bütçesi aşıldı (${formatTL(spent)} / ${formatTL(budget.limit)})`;
+  if (spent >= budget.limit) return `${cat?.name} bütçesi aşıldı (${formatTL(spent)} / ${formatTL(budget.limit)})`;
   if (spent >= budget.limit * 0.8) return `${cat?.name} bütçesinin %${pct}'i kullanıldı`;
   return base;
 }

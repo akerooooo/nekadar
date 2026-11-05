@@ -4,6 +4,7 @@ import MonthPicker from '../components/MonthPicker';
 import { db } from '../db';
 import { expenseByCategory, totals, useCategoryMap, useMonthTransactions } from '../lib/data';
 import { formatTL, formatTLShort, MONTHS, monthRange, shiftMonth } from '../lib/format';
+import { CategoryIcon } from '../lib/icons';
 
 export default function Stats({ month, setMonth }: { month: string; setMonth: (m: string) => void }) {
   const txs = useMonthTransactions(month);
@@ -37,8 +38,8 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
         <MonthPicker month={month} setMonth={setMonth} />
       </header>
 
-      <section className="card">
-        <h2 className="card-title">Nereye harcadın?</h2>
+      <section className="block">
+        <h2 className="block-title">Nereye harcadın?</h2>
         {slices.length === 0 ? (
           <p className="muted center pad">Bu ay gider yok.</p>
         ) : (
@@ -50,9 +51,10 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
                     data={slices}
                     dataKey="value"
                     nameKey="id"
-                    innerRadius={65}
+                    innerRadius={84}
                     outerRadius={100}
-                    paddingAngle={2}
+                    paddingAngle={1.5}
+                    cornerRadius={2}
                     stroke="none"
                     isAnimationActive={false}
                   >
@@ -70,11 +72,13 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
             <ul className="legend">
               {slices.map((s) => (
                 <li key={s.id}>
-                  <span className="swatch" style={{ background: s.cat?.color ?? '#94a3b8' }} />
-                  <span className="legend-name">
-                    {s.cat?.icon} {s.cat?.name ?? 'Silinmiş'}
+                  <span className="cat-icon" style={{ color: s.cat?.color }}>
+                    <CategoryIcon name={s.cat?.icon} size={16} />
                   </span>
-                  <span className="muted small">%{Math.round((s.value / expense) * 100)}</span>
+                  <span className="legend-name">
+                    {s.cat?.name ?? 'Silinmiş'}
+                  </span>
+                  <span className="muted small">{s.value / expense < 0.01 ? '<%1' : `%${Math.round((s.value / expense) * 100)}`}</span>
                   <b>{formatTL(s.value)}</b>
                 </li>
               ))}
@@ -83,8 +87,8 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
         )}
       </section>
 
-      <section className="card">
-        <h2 className="card-title">Son 6 ay</h2>
+      <section className="block">
+        <h2 className="block-title">Son 6 ay</h2>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={trend} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
             <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={12} />
@@ -95,10 +99,10 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
               width={56}
               tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}B ₺` : `${v} ₺`)}
             />
-            <Tooltip formatter={(v) => formatTL(Number(v))} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
-            <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="Gelir" fill="#16a34a" radius={[4, 4, 0, 0]} isAnimationActive={false} />
-            <Bar dataKey="Gider" fill="#0f766e" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+            <Tooltip formatter={(v) => formatTL(Number(v))} cursor={{ fill: 'var(--hover)' }} />
+            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+            <Bar dataKey="Gelir" fill="var(--chart-soft)" radius={[3, 3, 0, 0]} barSize={10} isAnimationActive={false} />
+            <Bar dataKey="Gider" fill="var(--ink)" radius={[3, 3, 0, 0]} barSize={10} isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
       </section>

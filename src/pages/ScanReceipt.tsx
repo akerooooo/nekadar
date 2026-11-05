@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createWorker } from 'tesseract.js';
+import { Camera, Images } from 'lucide-react';
 import { parseReceipt, type ReceiptResult } from '../lib/receiptParser';
 import { formatTL } from '../lib/format';
 
@@ -94,11 +95,13 @@ export default function ScanReceipt({ onClose, onResult }: Props) {
               kaydetmeden önce kontrol edebilirsin.
             </p>
             <label className="primary file-btn">
-              📷 Fotoğraf çek
+              <Camera size={18} strokeWidth={1.75} />
+              Fotoğraf çek
               <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => handleFile(e.target.files?.[0])} />
             </label>
             <label className="secondary file-btn">
-              🖼️ Galeriden seç
+              <Images size={18} strokeWidth={1.75} />
+              Galeriden seç
               <input type="file" accept="image/*" hidden onChange={(e) => handleFile(e.target.files?.[0])} />
             </label>
             <p className="muted small">Fotoğraf telefonundan çıkmaz; okuma cihazında yapılır.</p>
@@ -116,7 +119,7 @@ export default function ScanReceipt({ onClose, onResult }: Props) {
 
         {stage === 'done' && (
           <>
-            <ul className="card list">
+            <ul className="list">
               <li className="kv"><span className="muted">Tutar</span><b>{formatTL(result.amount!)}</b></li>
               {result.date && <li className="kv"><span className="muted">Tarih</span><b>{result.date.split('-').reverse().join('.')}</b></li>}
               {result.merchant && <li className="kv"><span className="muted">İşyeri</span><b>{result.merchant}</b></li>}

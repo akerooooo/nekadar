@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
+import { ChartPie, House, Plus, Settings2, Target, type LucideIcon } from 'lucide-react';
 import Home from './pages/Home';
 import Budgets from './pages/Budgets';
 import Settings from './pages/Settings';
@@ -12,11 +13,11 @@ const Stats = lazy(() => import('./pages/Stats'));
 
 export type Tab = 'home' | 'stats' | 'budgets' | 'settings';
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'home', label: 'Özet', icon: '🏠' },
-  { id: 'stats', label: 'Grafik', icon: '📊' },
-  { id: 'budgets', label: 'Bütçe', icon: '🎯' },
-  { id: 'settings', label: 'Ayarlar', icon: '⚙️' },
+const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
+  { id: 'home', label: 'Özet', icon: House },
+  { id: 'stats', label: 'Grafik', icon: ChartPie },
+  { id: 'budgets', label: 'Bütçe', icon: Target },
+  { id: 'settings', label: 'Ayarlar', icon: Settings2 },
 ];
 
 export default function App() {
@@ -48,8 +49,8 @@ export default function App() {
         {TABS.slice(0, 2).map((t) => (
           <TabButton key={t.id} {...t} active={tab === t.id} onClick={() => go(t.id)} />
         ))}
-        <button className="fab" aria-label="Harcama ekle" onClick={() => setEditor({})}>
-          +
+        <button className="fab" aria-label="Kayıt ekle" onClick={() => setEditor({})}>
+          <Plus size={26} strokeWidth={2} />
         </button>
         {TABS.slice(2).map((t) => (
           <TabButton key={t.id} {...t} active={tab === t.id} onClick={() => go(t.id)} />
@@ -71,10 +72,11 @@ export default function App() {
   );
 }
 
-function TabButton(p: { label: string; icon: string; active: boolean; onClick: () => void }) {
+function TabButton(p: { label: string; icon: LucideIcon; active: boolean; onClick: () => void }) {
+  const Icon = p.icon;
   return (
-    <button className={`tab ${p.active ? 'active' : ''}`} onClick={p.onClick}>
-      <span className="tab-icon">{p.icon}</span>
+    <button className={`tab ${p.active ? 'active' : ''}`} onClick={p.onClick} aria-current={p.active ? 'page' : undefined}>
+      <Icon size={22} strokeWidth={p.active ? 2 : 1.6} />
       <span>{p.label}</span>
     </button>
   );

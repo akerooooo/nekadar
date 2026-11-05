@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
+import { normalizeColor, normalizeIcon } from './lib/icons';
 
 export type TxType = 'expense' | 'income';
 
@@ -44,19 +45,37 @@ db.version(1).stores({
   meta: 'key',
 });
 
+// v2: emoji ikonlar yerine ikon adlari, sade renk paleti
+db.version(2)
+  .stores({
+    transactions: '++id, type, categoryId, date',
+    categories: '++id, type',
+    budgets: 'categoryId',
+    meta: 'key',
+  })
+  .upgrade((tx) =>
+    tx
+      .table('categories')
+      .toCollection()
+      .modify((c: Category) => {
+        c.icon = normalizeIcon(c.icon);
+        c.color = normalizeColor(c.color);
+      }),
+  );
+
 export const DEFAULT_CATEGORIES: Omit<Category, 'id'>[] = [
-  { name: 'Market', icon: '🛒', color: '#0f766e', type: 'expense' },
-  { name: 'Yemek', icon: '🍔', color: '#ea580c', type: 'expense' },
-  { name: 'Ulaşım', icon: '🚌', color: '#2563eb', type: 'expense' },
-  { name: 'Fatura', icon: '💡', color: '#ca8a04', type: 'expense' },
-  { name: 'Kira', icon: '🏠', color: '#7c3aed', type: 'expense' },
-  { name: 'Eğlence', icon: '🎬', color: '#db2777', type: 'expense' },
-  { name: 'Giyim', icon: '👕', color: '#0891b2', type: 'expense' },
-  { name: 'Sağlık', icon: '💊', color: '#dc2626', type: 'expense' },
-  { name: 'Diğer', icon: '📦', color: '#64748b', type: 'expense' },
-  { name: 'Maaş', icon: '💼', color: '#16a34a', type: 'income' },
-  { name: 'Ek gelir', icon: '💰', color: '#65a30d', type: 'income' },
-  { name: 'Diğer gelir', icon: '➕', color: '#4d7c0f', type: 'income' },
+  { name: 'Market', icon: 'cart', color: '#5b7f6b', type: 'expense' },
+  { name: 'Yemek', icon: 'food', color: '#b5687a', type: 'expense' },
+  { name: 'Ulaşım', icon: 'bus', color: '#4f6d9a', type: 'expense' },
+  { name: 'Fatura', icon: 'bulb', color: '#b8913a', type: 'expense' },
+  { name: 'Kira', icon: 'house', color: '#6e5e95', type: 'expense' },
+  { name: 'Eğlence', icon: 'film', color: '#3f8c8c', type: 'expense' },
+  { name: 'Giyim', icon: 'shirt', color: '#8a9a5b', type: 'expense' },
+  { name: 'Sağlık', icon: 'health', color: '#a85454', type: 'expense' },
+  { name: 'Diğer', icon: 'package', color: '#8c8f94', type: 'expense' },
+  { name: 'Maaş', icon: 'briefcase', color: '#4e8a5e', type: 'income' },
+  { name: 'Ek gelir', icon: 'coins', color: '#7a9a4e', type: 'income' },
+  { name: 'Diğer gelir', icon: 'wallet', color: '#6b8f7a', type: 'income' },
 ];
 
 db.on('populate', (tx) => {

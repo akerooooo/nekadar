@@ -3,6 +3,7 @@ import MonthPicker from '../components/MonthPicker';
 import { db } from '../db';
 import { expenseByCategory, useBudgets, useCategories, useMonthTransactions } from '../lib/data';
 import { formatTL, parseAmount } from '../lib/format';
+import { CategoryIcon } from '../lib/icons';
 
 export default function Budgets({ month, setMonth }: { month: string; setMonth: (m: string) => void }) {
   const cats = useCategories().filter((c) => c.type === 'expense');
@@ -29,21 +30,20 @@ export default function Budgets({ month, setMonth }: { month: string; setMonth: 
         <MonthPicker month={month} setMonth={setMonth} />
       </header>
 
-      {totalLimit > 0 && (
-        <section className="card">
-          <div className="budget-top">
-            <span className="muted">Toplam bütçe</span>
-            <b>
-              {formatTL(totalSpentInBudgeted)} / {formatTL(totalLimit)}
-            </b>
-          </div>
+      {totalLimit > 0 ? (
+        <section className="hero">
+          <p className="hero-label">Limit koyduğun kategorilerde</p>
+          <p className="hero-amount">
+            {formatTL(totalSpentInBudgeted)}
+            <span className="hero-of"> / {formatTL(totalLimit)}</span>
+          </p>
           <Progress ratio={totalSpentInBudgeted / totalLimit} />
         </section>
+      ) : (
+        <p className="lead">Bir kategoriye dokunup aylık limit koy. Limitin %80'ine gelince ve aşınca uyarı alırsın.</p>
       )}
 
-      <p className="muted small pad-x">Kategoriye dokunup aylık limit koy. %80'e gelince ve aşınca uyarı alırsın.</p>
-
-      <ul className="card list">
+      <ul className="list">
         {cats.map((c) => {
           const limit = limitOf(c.id!);
           const spent = spentMap.get(c.id!) ?? 0;
@@ -57,11 +57,13 @@ export default function Budgets({ month, setMonth }: { month: string; setMonth: 
                   setValue(limit ? String(limit).replace('.', ',') : '');
                 }}
               >
-                <span className="cat-dot" style={{ background: `${c.color}22` }}>{c.icon}</span>
+                <span className="cat-icon" style={{ color: c.color }}>
+                  <CategoryIcon name={c.icon} />
+                </span>
                 <span className="row-text">
                   <span>{c.name}</span>
                   <span className="muted small">
-                    {limit ? `${formatTL(spent)} / ${formatTL(limit)}` : `${formatTL(spent)} · limit yok`}
+                    {limit ? `${formatTL(spent)} / ${formatTL(limit)}` : `${formatTL(spent)}, limit yok`}
                   </span>
                 </span>
                 {limit > 0 && (
