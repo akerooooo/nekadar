@@ -10,8 +10,13 @@ import { Toast, useToast } from './components/Toast';
 import InstallHint from './components/InstallHint';
 import { monthKey, monthLabel } from './lib/format';
 
-// Grafik kutuphanesi buyuk; sadece Grafik sekmesi acilinca yuklenir
-const Stats = lazy(() => import('./pages/Stats'));
+// Grafik kutuphanesi buyuk; ilk acilisi yavaslatmasin diye ayri yuklenir,
+// ama sekmeye dokunmayi beklemeden acilistan kisa sure sonra arka planda hazirlanir
+// Hazirsa dogrudan cizilir: lazy her seferinde askiya alip "Yukleniyor"u ~300ms gosteriyordu
+let StatsReady: (typeof import('./pages/Stats'))['default'] | null = null;
+const loadStats = () => import('./pages/Stats').then((m) => ((StatsReady = m.default), m));
+const Stats = lazy(loadStats);
+setTimeout(loadStats, 1500);
 
 export type Tab = 'home' | 'stats' | 'budgets' | 'settings';
 
@@ -40,7 +45,8 @@ export default function App() {
       <main className="content">
         <InstallHint />
         {tab === 'home' && <Home month={month} setMonth={setMonth} onEdit={(d) => setEditor(d)} onSearch={() => setSearching(true)} onGoals={() => setGoalsOpen(true)} />}
-        {tab === 'stats' && (
+        {tab === 'stats' && StatsReady && <StatsReady month={month} setMonth={setMonth} />}
+        {tab === 'stats' && !StatsReady && (
           <Suspense fallback={<p className="muted center pad">Yükleniyor…</p>}>
             <Stats month={month} setMonth={setMonth} />
           </Suspense>
