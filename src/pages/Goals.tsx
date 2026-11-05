@@ -148,7 +148,6 @@ function GoalSheet({ goal, onClose, toast }: { goal: Goal | null; onClose: () =>
         </div>
 
         {error && <p className="error">{error}</p>}
-        {!goal && <button className="primary" onClick={() => save()}>Hedefi kaydet</button>}
         {goal && <button className="danger" onClick={remove}>Hedefi sil</button>}
       </div>
     </div>

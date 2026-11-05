@@ -164,7 +164,6 @@ function SubEditor({ sub, onClose, toast }: { sub: RecurringRule; onClose: () =>
         )}
 
         {error && <p className="error">{error}</p>}
-        <button className="primary" onClick={save}>Kaydet</button>
         <button className="danger" onClick={remove}>Tekrarı durdur</button>
       </div>
     </div>

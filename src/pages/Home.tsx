@@ -157,7 +157,7 @@ export default function Home({ month, setMonth, onEdit, onSearch, onGoals }: Pro
           <p className="muted">İlk harcamanı eklemek için + düğmesine dokun.</p>
         </div>
       ) : (
-        <EntryList txs={txs} cats={cats} onEdit={(id) => onEdit({ id })} />
+        <EntryList key={month} limit={10} txs={txs} cats={cats} onEdit={(id) => onEdit({ id })} />
       )}
     </>
   );

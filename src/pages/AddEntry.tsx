@@ -204,8 +204,6 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
         )}
 
         {error && <p className="error">{error}</p>}
-
-        <button className="primary" onClick={save}>Kaydet</button>
         {draft.id != null && (
           <button className="danger" onClick={remove}>Kaydı sil</button>
         )}

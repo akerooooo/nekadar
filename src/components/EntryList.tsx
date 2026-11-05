@@ -1,14 +1,19 @@
+import { useState } from 'react';
 import type { Category, Transaction } from '../db';
 import { formatDay, formatTL } from '../lib/format';
 import { CategoryIcon } from '../lib/icons';
 
-/** Gun basliklarina gore gruplu kayit listesi (Ozet ve Arama) */
-export default function EntryList(p: { txs: Transaction[]; cats: Map<string, Category>; onEdit: (id: string) => void }) {
+/** Gun basliklarina gore gruplu kayit listesi (Ozet ve Arama). limit verilirse ilk N kayit + "Tumunu gor" */
+export default function EntryList(p: { txs: Transaction[]; cats: Map<string, Category>; onEdit: (id: string) => void; limit?: number }) {
+  const [all, setAll] = useState(false);
   const sorted = [...p.txs].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+  const cut = p.limit && !all && sorted.length > p.limit;
   const groups = new Map<string, Transaction[]>();
-  for (const t of sorted) groups.set(t.date, [...(groups.get(t.date) ?? []), t]);
+  for (const t of cut ? sorted.slice(0, p.limit) : sorted) groups.set(t.date, [...(groups.get(t.date) ?? []), t]);
 
-  return [...groups].map(([date, list]) => (
+  return (
+    <>
+      {[...groups].map(([date, list]) => (
     <section key={date} className="day">
       <h2 className="day-title">{formatDay(date)}</h2>
       <ul className="list">
@@ -34,5 +39,12 @@ export default function EntryList(p: { txs: Transaction[]; cats: Map<string, Cat
         })}
       </ul>
     </section>
-  ));
+      ))}
+      {cut && (
+        <button className="link see-all" onClick={() => setAll(true)}>
+          Tümünü gör ({sorted.length} kayıt)
+        </button>
+      )}
+    </>
+  );
 }

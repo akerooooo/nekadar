@@ -1166,3 +1166,11 @@ h1 {
 .meta-btn svg {
   color: var(--muted);
 }
+
+.see-all {
+  display: block;
+  margin: 4px auto 8px;
+  padding: 10px 16px;
+  color: var(--ink);
+  font-weight: 600;
+}
