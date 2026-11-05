@@ -476,6 +476,8 @@ h1 {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  /* sayfa ekranin altina yapismasin, yuzen kart gibi dursun */
+  padding: 0 10px calc(env(safe-area-inset-bottom) + 10px);
   z-index: 20;
   animation: fade 0.18s ease-out;
 }
@@ -487,11 +489,11 @@ h1 {
 .sheet {
   width: 100%;
   max-width: 520px;
-  max-height: 94dvh;
+  max-height: calc(94dvh - env(safe-area-inset-bottom) - 10px);
   overflow-y: auto;
   background: var(--surface);
-  border-radius: 22px 22px 0 0;
-  padding: 6px 20px calc(env(safe-area-inset-bottom) + 20px);
+  border-radius: 22px;
+  padding: 6px 20px 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -1115,7 +1117,7 @@ h1 {
 }
 
 .sheet.tall {
-  min-height: 94dvh;
+  min-height: calc(94dvh - env(safe-area-inset-bottom) - 10px);
 }
 
 .search-field {
