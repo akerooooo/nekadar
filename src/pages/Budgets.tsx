@@ -13,15 +13,8 @@ import {
 import { formatTL, parseAmount } from '../lib/format';
 import { CategoryIcon } from '../lib/icons';
 import Progress from '../components/Progress';
-import Goals from './Goals';
 
-interface Props {
-  month: string;
-  setMonth: (m: string) => void;
-  toast: (m: string) => void;
-}
-
-export default function Budgets({ month, setMonth, toast }: Props) {
+export default function Budgets({ month, setMonth }: { month: string; setMonth: (m: string) => void }) {
   const cats = useCategories().filter((c) => c.type === 'expense');
   const budgets = useBudgets();
   const txs = useMonthTransactions(month);
@@ -159,7 +152,6 @@ export default function Budgets({ month, setMonth, toast }: Props) {
         })}
       </ul>
 
-      <Goals toast={toast} />
     </>
   );
 }

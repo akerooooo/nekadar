@@ -5,6 +5,7 @@ import Budgets from './pages/Budgets';
 import Settings from './pages/Settings';
 import AddEntry, { type EntryDraft } from './pages/AddEntry';
 import Search from './pages/Search';
+import { GoalsSheet } from './pages/Goals';
 import { Toast, useToast } from './components/Toast';
 import InstallHint from './components/InstallHint';
 import { monthKey, monthLabel } from './lib/format';
@@ -26,6 +27,7 @@ export default function App() {
   const [month, setMonth] = useState(monthKey(new Date()));
   const [editor, setEditor] = useState<EntryDraft | null>(null);
   const [searching, setSearching] = useState(false);
+  const [goalsOpen, setGoalsOpen] = useState(false);
   const toast = useToast();
 
   function go(next: Tab) {
@@ -37,13 +39,13 @@ export default function App() {
     <div className="app">
       <main className="content">
         <InstallHint />
-        {tab === 'home' && <Home month={month} setMonth={setMonth} onEdit={(d) => setEditor(d)} onSearch={() => setSearching(true)} />}
+        {tab === 'home' && <Home month={month} setMonth={setMonth} onEdit={(d) => setEditor(d)} onSearch={() => setSearching(true)} onGoals={() => setGoalsOpen(true)} />}
         {tab === 'stats' && (
           <Suspense fallback={<p className="muted center pad">Yükleniyor…</p>}>
             <Stats month={month} setMonth={setMonth} />
           </Suspense>
         )}
-        {tab === 'budgets' && <Budgets month={month} setMonth={setMonth} toast={toast.show} />}
+        {tab === 'budgets' && <Budgets month={month} setMonth={setMonth} />}
         {tab === 'settings' && <Settings toast={toast.show} />}
       </main>
 
@@ -59,6 +61,7 @@ export default function App() {
         ))}
       </nav>
 
+      {goalsOpen && <GoalsSheet onClose={() => setGoalsOpen(false)} toast={toast.show} />}
       {searching && <Search onClose={() => setSearching(false)} onEdit={(id) => setEditor({ id })} />}
       {editor && (
         <AddEntry

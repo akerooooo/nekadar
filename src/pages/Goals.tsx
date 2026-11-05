@@ -1,18 +1,39 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { PiggyBank, Plus } from 'lucide-react';
 import Progress from '../components/Progress';
 import { db, type Goal } from '../db';
 import { formatTL, parseAmount } from '../lib/format';
 
-/** Butce > Birikim hedefleri. Biriken tutar elle eklenir; harcama toplamlarina girmez. */
+/** Ozet > Biriken'e dokununca acilan hedefler sayfasi */
+export function GoalsSheet({ onClose, toast }: { onClose: () => void; toast: (m: string) => void }) {
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="sheet tall" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Birikim hedefleri">
+        <div className="sheet-head">
+          <span />
+          <b>Hedefler</b>
+          <button className="link strong" onClick={onClose}>Kapat</button>
+        </div>
+        <Goals toast={toast} />
+      </div>
+    </div>
+  );
+}
+
+/** Hedef listesi. Biriken tutar elle eklenir; harcama toplamlarina girmez. */
 export default function Goals({ toast }: { toast: (m: string) => void }) {
   const goals = useLiveQuery(async () => (await db.goals.toArray()).sort((a, b) => a.name.localeCompare(b.name, 'tr')), [], [] as Goal[]);
   const [open, setOpen] = useState<Goal | 'new' | null>(null);
 
   return (
-    <section className="block">
-      <h2 className="block-title">Birikim hedefleri</h2>
+    <section>
+      {goals.length > 0 && (
+        <p className="muted small">
+          Toplam biriken {formatTL(goals.reduce((s, g) => s + g.saved, 0))} / {formatTL(goals.reduce((s, g) => s + g.target, 0))}
+        </p>
+      )}
       {goals.length === 0 && <p className="lead">Tatil, telefon, acil durum fonu… Bir hedef koy, biriktirdikçe ekle.</p>}
       <ul className="list">
         {goals.map((g) => (
@@ -41,7 +62,8 @@ export default function Goals({ toast }: { toast: (m: string) => void }) {
         <Plus size={16} strokeWidth={1.75} />
         Hedef ekle
       </button>
-      {open && <GoalSheet goal={open === 'new' ? null : open} onClose={() => setOpen(null)} toast={toast} />}
+      {/* Disaridaki sayfanin animasyonu konumu bozmasin diye body'ye cizilir */}
+      {open && createPortal(<GoalSheet goal={open === 'new' ? null : open} onClose={() => setOpen(null)} toast={toast} />, document.body)}
     </section>
   );
 }

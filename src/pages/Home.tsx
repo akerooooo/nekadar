@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { CalendarClock, CircleAlert, HardDriveDownload, ReceiptText, Search } from 'lucide-react';
+import { CalendarClock, ChevronRight, CircleAlert, HardDriveDownload, ReceiptText, Search } from 'lucide-react';
 import MonthPicker from '../components/MonthPicker';
 import EntryList from '../components/EntryList';
 import { db } from '../db';
@@ -15,6 +15,7 @@ interface Props {
   setMonth: (m: string) => void;
   onEdit: (d: EntryDraft) => void;
   onSearch: () => void;
+  onGoals: () => void;
 }
 
 interface Notice {
@@ -26,13 +27,15 @@ interface Notice {
 
 const alert = <CircleAlert size={16} strokeWidth={1.75} />;
 
-export default function Home({ month, setMonth, onEdit, onSearch }: Props) {
+export default function Home({ month, setMonth, onEdit, onSearch, onGoals }: Props) {
   const txs = useMonthTransactions(month);
   const cats = useCategoryMap();
   const budgets = useBudgets();
   const { income, expense, balance } = totals(txs);
   const byCat = expenseByCategory(txs);
   const [showAll, setShowAll] = useState(false);
+  const goals = useLiveQuery(() => db.goals.toArray(), [], []);
+  const saved = goals.reduce((s, g) => s + g.saved, 0);
 
   const split = [...byCat]
     .map(([id, value]) => ({ id, value, cat: cats.get(id) }))
@@ -116,6 +119,15 @@ export default function Home({ month, setMonth, onEdit, onSearch }: Props) {
           <div>
             <dt>Kalan</dt>
             <dd className={balance < 0 ? 'neg' : ''}>{formatTL(balance)}</dd>
+          </div>
+          <div>
+            <dt>Biriken</dt>
+            <dd>
+              <button className={`meta-btn ${goals.length ? '' : 'muted'}`} onClick={onGoals}>
+                {goals.length ? formatTL(saved) : 'Hedef koy'}
+                <ChevronRight size={14} strokeWidth={2} />
+              </button>
+            </dd>
           </div>
         </dl>
       </section>
