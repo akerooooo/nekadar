@@ -29,7 +29,7 @@ import {
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { liveQuery } from 'dexie';
-import { db, markRemote, SYNCED, syncState } from '../db';
+import { db, defaultCategories, markRemote, SYNCED, syncState } from '../db';
 import { markRedirect } from './cloud';
 
 const app = initializeApp(JSON.parse(import.meta.env.VITE_FIREBASE_CONFIG));
@@ -107,6 +107,7 @@ async function start(user: User) {
       await db.meta.delete('syncBusy');
     }
   }
+  await db.meta.put({ key: 'ownerUid', value: uid }); // v1.3'te girenler icin de
   syncState.on = true;
   for (const name of TABLES) {
     const since = Number((await db.meta.get(`pull:${name}`))?.value ?? 0);
@@ -125,10 +126,25 @@ async function start(user: User) {
   }
   const sub = liveQuery(() => db.outbox.count()).subscribe((n) => n && push());
   stops.push(() => sub.unsubscribe());
+  // Bildirim jetonu zamanla degisir; her acilista yenile (izin zaten verilmisse soru sormaz)
+  if ((await db.meta.get('pushOn')) && 'Notification' in window && Notification.permission === 'granted') {
+    enablePush().catch(console.error);
+  }
 }
 
 /** Bu cihazda ilk giris: once buluttakini cek, sonra yalnizca yerelde daha yeni olanlari gonder */
 async function firstSync(id: string) {
+  // Bu cihaz daha once baska bir hesaba aitse onun kayitlari yeni hesaba tasinmaz:
+  // yerel veri silinir, yalnizca yeni hesabin bulut verisi gelir.
+  const owner = (await db.meta.get('ownerUid'))?.value;
+  if (owner && owner !== id) {
+    await db.transaction('rw', TABLES.map((n) => db.table(n)), async (tx) => {
+      markRemote(tx);
+      for (const name of TABLES) if (name !== 'meta') await db.table(name).clear();
+      await db.meta.delete('totalBudget');
+      await db.cats.bulkAdd(defaultCategories()); // bulutta duzenlenmis hali varsa o kazanir
+    });
+  }
   const remote = new Map<string, number>();
   const snaps = await Promise.all(TABLES.map((name) => getDocs(collection(fs, 'users', id, name))));
   for (const [i, name] of TABLES.entries()) {
@@ -149,7 +165,10 @@ async function firstSync(id: string) {
         .map((r) => ({ key: `${name}/${r[SYNCED[name]]}`, at }));
       await db.outbox.bulkPut(keys);
     }
-    await db.meta.put({ key: 'syncUid', value: id });
+    await db.meta.bulkPut([
+      { key: 'syncUid', value: id },
+      { key: 'ownerUid', value: id }, // cikista silinmez
+    ]);
   });
 }
 

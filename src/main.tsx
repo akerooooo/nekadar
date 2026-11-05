@@ -11,6 +11,10 @@ import './styles.css';
 registerSW({ immediate: true });
 requestPersistentStorage();
 applyRecurring().catch(console.error);
+// iPhone uygulamayi gunlerce arka planda tutabilir; one gelince gunu gelenleri ekle
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') applyRecurring().catch(console.error);
+});
 initCloud().catch(console.error);
 
 createRoot(document.getElementById('root')!).render(

@@ -1,4 +1,4 @@
-import { convertLegacy, db, type Budget, type Category, type Meta, type Transaction } from '../db';
+import { convertLegacy, db, type Budget, type Category, type Goal, type Meta, type Transaction } from '../db';
 import { toISODate } from './format';
 import type { RecurringRule } from './recurring';
 
@@ -11,6 +11,7 @@ interface BackupFile {
   budgets: Budget[];
   recurring?: RecurringRule[]; // eski yedeklerde yok
   meta?: Meta[]; // yalnizca totalBudget
+  goals?: Goal[]; // v1.4 oncesi yedeklerde yok
 }
 
 /** iPhone'da Paylas menusunu acar (Dosyalar'a kaydet, WhatsApp, Mail...), olmazsa indirir */
@@ -48,6 +49,7 @@ export async function exportJSON() {
     budgets: await db.budgets.toArray(),
     recurring: await db.subs.toArray(),
     meta: await db.meta.where('key').equals('totalBudget').toArray(),
+    goals: await db.goals.toArray(),
   };
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   await deliverFile(`nekadar-yedek-${toISODate(new Date())}.json`, blob);
@@ -98,12 +100,13 @@ export async function importJSON(file: File): Promise<number> {
     parsed.version === 2
       ? { cats: parsed.categories, entries: parsed.transactions, budgets: parsed.budgets, subs: parsed.recurring ?? [] }
       : convertLegacy(parsed); // eski yedek: kimlikleri cevir, emoji ikonlari duzelt
-  await db.transaction('rw', [db.cats, db.entries, db.budgets, db.subs, db.meta], async () => {
+  await db.transaction('rw', [db.cats, db.entries, db.budgets, db.subs, db.meta, db.goals], async () => {
     await Promise.all([
       db.cats.clear(),
       db.entries.clear(),
       db.budgets.clear(),
       db.subs.clear(),
+      db.goals.clear(),
       db.meta.delete('totalBudget'),
     ]);
     await db.meta.bulkPut((parsed.meta ?? []).filter((m) => m.key === 'totalBudget'));
@@ -111,6 +114,7 @@ export async function importJSON(file: File): Promise<number> {
     await db.entries.bulkAdd(n.entries);
     await db.budgets.bulkAdd(n.budgets);
     await db.subs.bulkAdd(n.subs);
+    await db.goals.bulkAdd(parsed.goals ?? []);
   });
   return parsed.transactions.length;
 }

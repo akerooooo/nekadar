@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import Budgets from './pages/Budgets';
 import Settings from './pages/Settings';
 import AddEntry, { type EntryDraft } from './pages/AddEntry';
+import Search from './pages/Search';
 import { Toast, useToast } from './components/Toast';
 import InstallHint from './components/InstallHint';
 import { monthKey, monthLabel } from './lib/format';
@@ -24,6 +25,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('home');
   const [month, setMonth] = useState(monthKey(new Date()));
   const [editor, setEditor] = useState<EntryDraft | null>(null);
+  const [searching, setSearching] = useState(false);
   const toast = useToast();
 
   function go(next: Tab) {
@@ -35,13 +37,13 @@ export default function App() {
     <div className="app">
       <main className="content">
         <InstallHint />
-        {tab === 'home' && <Home month={month} setMonth={setMonth} onEdit={(d) => setEditor(d)} />}
+        {tab === 'home' && <Home month={month} setMonth={setMonth} onEdit={(d) => setEditor(d)} onSearch={() => setSearching(true)} />}
         {tab === 'stats' && (
           <Suspense fallback={<p className="muted center pad">Yükleniyor…</p>}>
             <Stats month={month} setMonth={setMonth} />
           </Suspense>
         )}
-        {tab === 'budgets' && <Budgets month={month} setMonth={setMonth} />}
+        {tab === 'budgets' && <Budgets month={month} setMonth={setMonth} toast={toast.show} />}
         {tab === 'settings' && <Settings toast={toast.show} />}
       </main>
 
@@ -57,14 +59,15 @@ export default function App() {
         ))}
       </nav>
 
+      {searching && <Search onClose={() => setSearching(false)} onEdit={(id) => setEditor({ id })} />}
       {editor && (
         <AddEntry
           draft={editor}
           onClose={() => setEditor(null)}
           onSaved={(msg, date) => {
             setEditor(null);
-            // Baska aya kaydedildiyse o aya gec ve hangi ay oldugunu soyle
-            if (date && date.slice(0, 7) !== month) {
+            // Baska aya kaydedildiyse o aya gec ve hangi ay oldugunu soyle (aramadan acildiysa ay degismez)
+            if (!searching && date && date.slice(0, 7) !== month) {
               setMonth(date.slice(0, 7));
               toast.show(`${msg}: ${monthLabel(date.slice(0, 7))}`);
             } else toast.show(msg);

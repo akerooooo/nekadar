@@ -12,8 +12,16 @@ import {
 } from '../lib/data';
 import { formatTL, parseAmount } from '../lib/format';
 import { CategoryIcon } from '../lib/icons';
+import Progress from '../components/Progress';
+import Goals from './Goals';
 
-export default function Budgets({ month, setMonth }: { month: string; setMonth: (m: string) => void }) {
+interface Props {
+  month: string;
+  setMonth: (m: string) => void;
+  toast: (m: string) => void;
+}
+
+export default function Budgets({ month, setMonth, toast }: Props) {
   const cats = useCategories().filter((c) => c.type === 'expense');
   const budgets = useBudgets();
   const txs = useMonthTransactions(month);
@@ -150,16 +158,8 @@ export default function Budgets({ month, setMonth }: { month: string; setMonth: 
           );
         })}
       </ul>
-    </>
-  );
-}
 
-function Progress({ ratio }: { ratio: number }) {
-  const pct = Math.min(100, Math.round(ratio * 100));
-  const level = ratio >= 1 ? 'over' : ratio >= 0.8 ? 'near' : 'ok';
-  return (
-    <div className="progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-      <div className={`progress-bar ${level}`} style={{ width: `${pct}%` }} />
-    </div>
+      <Goals toast={toast} />
+    </>
   );
 }

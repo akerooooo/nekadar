@@ -11,6 +11,7 @@ import { CategoryIcon, PALETTE, PICKABLE_ICONS } from '../lib/icons';
 
 export default function Settings({ toast }: { toast: (m: string) => void }) {
   const lastBackup = useLiveQuery(getLastBackup, [], null);
+  const signedIn = useLiveQuery(async () => !!(await db.meta.get('syncEmail')), [], false);
   const txCount = useLiveQuery(() => db.entries.count(), [], 0);
   const categories = useCategories();
   const [newName, setNewName] = useState('');
@@ -96,13 +97,14 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
         return toast('Yedek alınmadı, silme iptal edildi');
       }
     }
-    await db.transaction('rw', [db.cats, db.entries, db.budgets, db.meta, db.subs], async () => {
+    await db.transaction('rw', [db.cats, db.entries, db.budgets, db.meta, db.subs, db.goals], async () => {
       await Promise.all([
         db.entries.clear(),
         db.budgets.clear(),
         db.cats.clear(),
         db.meta.bulkDelete(['totalBudget', 'lastBackup']),
         db.subs.clear(),
+        db.goals.clear(),
       ]);
       await db.cats.bulkAdd(defaultCategories());
     });
@@ -120,8 +122,9 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
       <section className="block">
         <h2 className="block-title">Yedekleme</h2>
         <p className="lead">
-          Verilerin yalnızca bu telefonda durur. Telefon değiştirmeden önce yedek al ve Dosyalar'a ya da iCloud Drive'a
-          kaydet.
+          {signedIn
+            ? 'Kayıtların hesabınla buluta da kaydediliyor. Yine de ara sıra yedek almak iyi olur.'
+            : "Verilerin yalnızca bu telefonda durur. Telefon değiştirmeden önce yedek al ve Dosyalar'a ya da iCloud Drive'a kaydet."}
         </p>
         <p className="muted small">
           {txCount} kayıt. Son yedek: {lastBackup ? lastBackup.toLocaleDateString('tr-TR') : 'henüz alınmadı'}.

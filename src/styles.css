@@ -1094,10 +1094,55 @@ h1 {
   gap: 10px;
 }
 
+.chips.kinds {
+  margin: 0;
+}
+
 .chips.kinds li {
   padding: 0;
 }
 
 .chips.kinds .chip-main {
   padding: 7px 13px;
+}
+
+/* v1.4: arama, uyarilar, hedefler */
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sheet.tall {
+  min-height: 94dvh;
+}
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0 14px;
+  color: var(--muted);
+}
+
+.search-field input {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 13px 0;
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.notices li.more {
+  padding-top: 0;
+  border: none;
+}
+
+.goal-sheet .goal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }

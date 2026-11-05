@@ -59,3 +59,13 @@ export function parseAmount(input: string): number {
   }
   return Math.round(parseFloat(s) * 100) / 100;
 }
+
+/**
+ * Kiyas icin onceki ayin tarih araligi. Icinde bulunulan ay gosteriliyorsa
+ * onceki ayin yalnizca ayni gunune kadari alinir (6 Kasim'da 1-6 Ekim).
+ */
+export function compareRange(month: string, todayIso: string): { from: string; to: string; partial: boolean } {
+  const prev = shiftMonth(month, -1);
+  const partial = todayIso.startsWith(month);
+  return { from: `${prev}-01`, to: partial ? `${prev}-${todayIso.slice(8)}` : `${prev}-31`, partial };
+}

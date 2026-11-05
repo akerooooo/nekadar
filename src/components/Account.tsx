@@ -102,7 +102,10 @@ export default function Account({ toast }: { toast: (m: string) => void }) {
           </button>
         </li>
         <li>
-          <button className="row" disabled={busy} onClick={() => act(async () => (await loadSync()).signOut(), 'Çıkış yapıldı')}>
+          <button className="row" disabled={busy} onClick={() => {
+              if (pending && !confirm(`${pending} değişiklik henüz buluta gitmedi; çıkarsan diğer cihazlarına geçmez. Yine de çıkılsın mı?`)) return;
+              act(async () => (await loadSync()).signOut(), 'Çıkış yapıldı');
+            }}>
             <LogOut size={18} strokeWidth={1.75} />
             <span className="row-text">
               <span>Çıkış yap</span>

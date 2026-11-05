@@ -36,6 +36,15 @@ export interface Meta {
   updatedAt?: number;
 }
 
+/** Birikim hedefi; biriken tutar elle eklenir/cikarilir, harcamalara sayilmaz */
+export interface Goal {
+  id?: string;
+  name: string;
+  target: number;
+  saved: number;
+  updatedAt?: number;
+}
+
 /** Eşitleme kuyrugu: bulutla eşitlenmeyi bekleyen kayitlarin "tablo/anahtar"i */
 export interface OutboxItem {
   key: string;
@@ -49,6 +58,7 @@ export const db = new Dexie('nekadar') as Dexie & {
   meta: EntityTable<Meta, 'key'>;
   subs: EntityTable<RecurringRule, 'id'>;
   outbox: EntityTable<OutboxItem, 'key'>;
+  goals: EntityTable<Goal, 'id'>;
 };
 
 export const DEFAULT_CATEGORIES: Omit<Category, 'id'>[] = [
@@ -160,16 +170,19 @@ db.version(4)
     await tx.table('budgets').bulkAdd(n.budgets);
   });
 
+// v5: birikim hedefleri
+db.version(5).stores({ goals: 'id' });
+
 db.on('populate', (tx) => {
   markRemote(tx); // varsayilanlar buluttaki duzenlenmis hallerini ezmesin
   tx.table('cats').bulkAdd(defaultCategories());
 });
 
 // Yeni kayitlara UUID ver
-for (const t of [db.entries, db.cats, db.subs]) t.hook('creating', (key) => (key == null ? crypto.randomUUID() : undefined));
+for (const t of [db.entries, db.cats, db.subs, db.goals]) t.hook('creating', (key) => (key == null ? crypto.randomUUID() : undefined));
 
 /** Bulutla eşitlenen tablolar ve birincil anahtar alanlari */
-export const SYNCED: Record<string, string> = { entries: 'id', cats: 'id', budgets: 'categoryId', subs: 'id', meta: 'key' };
+export const SYNCED: Record<string, string> = { entries: 'id', cats: 'id', budgets: 'categoryId', subs: 'id', meta: 'key', goals: 'id' };
 const SYNCED_META = new Set(['totalBudget']); // digerleri (lastBackup, eşitleme durumu) cihaza ozel
 export const syncState = { on: false };
 

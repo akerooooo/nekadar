@@ -3,14 +3,20 @@ import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis
 import MonthPicker from '../components/MonthPicker';
 import { db } from '../db';
 import { expenseByCategory, totals, useCategoryMap, useMonthTransactions } from '../lib/data';
-import { formatTL, formatTLShort, MONTHS, monthRange, shiftMonth } from '../lib/format';
+import { compareRange, formatTL, formatTLShort, MONTHS, monthRange, shiftMonth, today } from '../lib/format';
 import { CategoryIcon } from '../lib/icons';
 
 export default function Stats({ month, setMonth }: { month: string; setMonth: (m: string) => void }) {
   const txs = useMonthTransactions(month);
   const cats = useCategoryMap();
   const { expense } = totals(txs);
-  const prevTxs = useMonthTransactions(shiftMonth(month, -1));
+  // Ay surerken gecen ayin tamami degil, ayni donemi kiyaslanir
+  const range = compareRange(month, today());
+  const prevTxs = useLiveQuery(
+    () => db.entries.where('date').between(range.from, range.to, true, true).toArray(),
+    [range.from, range.to],
+    [],
+  );
   const prevTotal = totals(prevTxs).expense;
   const prevByCat = expenseByCategory(prevTxs);
 
@@ -85,7 +91,7 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
                 <b>{formatTLShort(expense)}</b>
               </div>
             </div>
-            {prevTotal > 0 && <p className="change center">{changeText(expense, prevTotal)}</p>}
+            {prevTotal > 0 && <p className="change center">{changeText(expense, prevTotal, range.partial)}</p>}
             <ul className="legend">
               {slices.map((s) => (
                 <li key={s.id}>
@@ -95,7 +101,7 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
                   <span className="legend-name">
                     {s.cat?.name ?? 'Silinmiş'}
                     {prevByCat.get(s.id) ? (
-                      <span className="muted small">{changeText(s.value, prevByCat.get(s.id)!)}</span>
+                      <span className="muted small">{shortChange(s.value, prevByCat.get(s.id)!)}</span>
                     ) : null}
                   </span>
                   <span className="muted small">{s.value / expense < 0.01 ? '<%1' : `%${Math.round((s.value / expense) * 100)}`}</span>
@@ -162,9 +168,16 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
   );
 }
 
-/** "Geçen aydan %12 fazla" gibi kisa karsilastirma */
-function changeText(current: number, previous: number) {
+/** "Geçen aydan %12 fazla" gibi kisa karsilastirma; partial: ay suruyor, ayni donemle kiyas */
+function changeText(current: number, previous: number, partial = false) {
   const pct = Math.round(((current - previous) / previous) * 100);
-  if (pct === 0) return 'Geçen ayla aynı';
-  return `Geçen aydan %${Math.abs(pct)} ${pct > 0 ? 'fazla' : 'az'}`;
+  const base = partial ? 'Geçen ayın aynı dönemine göre' : 'Geçen aya göre';
+  if (pct === 0) return `${base} aynı`;
+  return `${base} %${Math.abs(pct)} ${pct > 0 ? 'fazla' : 'az'}`;
+}
+
+/** Kategori satirlari icin kisa hali: "%12 fazla" (kiyas donemi ustteki toplamla ayni) */
+function shortChange(current: number, previous: number) {
+  const pct = Math.round(((current - previous) / previous) * 100);
+  return pct === 0 ? 'aynı' : `%${Math.abs(pct)} ${pct > 0 ? 'fazla' : 'az'}`;
 }

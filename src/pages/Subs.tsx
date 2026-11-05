@@ -3,7 +3,7 @@ import { db, type TxType } from '../db';
 import { useCategories, useCategoryMap, useSubs } from '../lib/data';
 import { formatDay, formatTL, parseAmount, today } from '../lib/format';
 import { CategoryIcon } from '../lib/icons';
-import { FREQ_LABEL, monthlyCost, startDate, type Freq, type RecurringRule } from '../lib/recurring';
+import { FREQ_LABEL, KINDS, monthlyCost, startDate, type Freq, type RecurringRule } from '../lib/recurring';
 
 /** Ayarlar > Tekrarlayan kayitlar: abonelik, kira, maas... aylik toplam, siradaki tarih, duzenleme */
 export default function Subs({ toast }: { toast: (m: string) => void }) {
@@ -58,6 +58,7 @@ function SubEditor({ sub, onClose, toast }: { sub: RecurringRule; onClose: () =>
   const categories = useCategories();
   const [type, setType] = useState<TxType>(sub.type ?? 'expense');
   const [name, setName] = useState(sub.note ?? '');
+  const [kind, setKind] = useState(sub.kind ?? '');
   const [amount, setAmount] = useState(String(sub.amount).replace('.', ','));
   const [categoryId, setCategoryId] = useState(sub.categoryId ?? '');
   const [freq, setFreq] = useState<Freq>(sub.freq ?? 'monthly');
@@ -70,7 +71,7 @@ function SubEditor({ sub, onClose, toast }: { sub: RecurringRule; onClose: () =>
     const value = parseAmount(amount);
     if (!value || value <= 0) return setError('Geçerli bir tutar gir.');
     if (!cat) return setError('Bir kategori seç.');
-    const rule = { type, note: name.trim(), amount: value, categoryId: cat, freq, next: startDate(next, freq) };
+    const rule = { type, kind, note: name.trim(), amount: value, categoryId: cat, freq, next: startDate(next, freq) };
     await db.subs.update(sub.id!, rule);
     toast('Güncellendi');
     onClose();
@@ -93,8 +94,14 @@ function SubEditor({ sub, onClose, toast }: { sub: RecurringRule; onClose: () =>
         </div>
 
         <div className="segmented">
-          <button className={type === 'expense' ? 'on' : ''} onClick={() => setType('expense')}>Gider</button>
-          <button className={type === 'income' ? 'on' : ''} onClick={() => setType('income')}>Gelir</button>
+          <button className={type === 'expense' ? 'on' : ''} onClick={() => {
+              setType('expense');
+              setKind('');
+            }}>Gider</button>
+          <button className={type === 'income' ? 'on' : ''} onClick={() => {
+              setType('income');
+              setKind('');
+            }}>Gelir</button>
         </div>
 
         <label className="amount-field">
@@ -113,6 +120,16 @@ function SubEditor({ sub, onClose, toast }: { sub: RecurringRule; onClose: () =>
           />
           </span>
         </label>
+
+        <ul className="chips kinds" role="radiogroup" aria-label="Tür">
+          {KINDS[type].map((k) => (
+            <li key={k} className={kind === k ? 'on' : ''}>
+              <button className="chip-main" role="radio" aria-checked={kind === k} onClick={() => setKind(k)}>
+                {k}
+              </button>
+            </li>
+          ))}
+        </ul>
 
         <div className="segmented">
           {(Object.keys(FREQ_LABEL) as Freq[]).map((f) => (
