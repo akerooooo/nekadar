@@ -123,7 +123,7 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
               axisLine={false}
               fontSize={11}
               width={56}
-              tickFormatter={(v: number) => (v >= 1000 ? `${(v / 1000).toLocaleString('tr-TR', { maximumFractionDigits: 1 })}B ₺` : `${v} ₺`)}
+              tickFormatter={axisTL}
             />
             <Tooltip formatter={(v) => formatTL(Number(v))} cursor={{ fill: 'var(--hover)' }} />
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
@@ -181,3 +181,7 @@ function shortChange(current: number, previous: number) {
   const pct = Math.round(((current - previous) / previous) * 100);
   return pct === 0 ? 'aynı' : `%${Math.abs(pct)} ${pct > 0 ? 'fazla' : 'az'}`;
 }
+
+const short = (n: number) => n.toLocaleString('tr-TR', { maximumFractionDigits: 1 });
+/** Eksen etiketi: 1,5B ₺ / 12Mn ₺ */
+const axisTL = (v: number) => (v >= 1e6 ? `${short(v / 1e6)}Mn ₺` : v >= 1000 ? `${short(v / 1000)}B ₺` : `${v} ₺`);

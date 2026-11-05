@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { ChartPie, House, Plus, Settings2, Target, type LucideIcon } from 'lucide-react';
 import Home from './pages/Home';
 import Budgets from './pages/Budgets';
@@ -8,7 +8,7 @@ import Search from './pages/Search';
 import { GoalsSheet } from './pages/Goals';
 import { Toast, useToast } from './components/Toast';
 import InstallHint from './components/InstallHint';
-import { monthKey, monthLabel } from './lib/format';
+import { monthKey, monthLabel, today } from './lib/format';
 
 // Grafik kutuphanesi buyuk; ilk acilisi yavaslatmasin diye ayri yuklenir,
 // ama sekmeye dokunmayi beklemeden acilistan kisa sure sonra arka planda hazirlanir
@@ -34,6 +34,22 @@ export default function App() {
   const [searching, setSearching] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
   const toast = useToast();
+  const [, setDay] = useState(today());
+
+  // iOS uygulamayi gunlerce acik tutar: donuste gun degistiyse "Bugun/Dun" yenilensin,
+  // ay degistiyse ve kullanici o anki aya bakiyorsa yeni aya gecilsin
+  useEffect(() => {
+    let last = monthKey(new Date());
+    const onShow = () => {
+      if (document.hidden) return;
+      const now = monthKey(new Date());
+      if (now !== last) setMonth((m) => (m === last ? now : m));
+      last = now;
+      setDay(today());
+    };
+    document.addEventListener('visibilitychange', onShow);
+    return () => document.removeEventListener('visibilitychange', onShow);
+  }, []);
 
   function go(next: Tab) {
     setTab(next);

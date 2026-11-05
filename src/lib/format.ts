@@ -39,6 +39,7 @@ export const formatDay = (iso: string) => {
 
 /** "1.234,56" / "1234.56" / "1234,5" -> sayi */
 export function parseAmount(input: string): number {
+  if (input.trim().startsWith('-')) return NaN; // eksi tutar: tur Gider/Gelir ile secilir
   let s = input.replace(/[^\d.,]/g, '');
   if (!s) return NaN;
   const lastComma = s.lastIndexOf(',');

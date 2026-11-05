@@ -22,7 +22,7 @@ test('parseAmount Turkce ve Ingilizce yazimlari okur', () => {
 });
 
 test('parseAmount anlamsiz girisi reddeder', () => {
-  for (const input of ['', 'abc', '12,5,3', '1.2.3']) assert.ok(Number.isNaN(parseAmount(input)), input);
+  for (const input of ['', 'abc', '12,5,3', '1.2.3', '-50', ' -1,5']) assert.ok(Number.isNaN(parseAmount(input)), input);
 });
 
 test('kiyas araligi: bu ay ise gecen ayin ayni donemi', () => {
