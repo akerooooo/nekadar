@@ -2,14 +2,15 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { db, type TxType } from '../db';
 import { useCategories } from '../lib/data';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { formatTL, monthRange, parseAmount, toISODate, today } from '../lib/format';
+import { formatDay, formatTL, monthRange, parseAmount, toISODate, today } from '../lib/format';
 import { ScanLine } from 'lucide-react';
 import { CategoryIcon } from '../lib/icons';
+import { advance, FREQ_LABEL, startDate, type Freq } from '../lib/recurring';
 
 const ScanReceipt = lazy(() => import('./ScanReceipt'));
 
 export interface EntryDraft {
-  id?: number;
+  id?: string;
 }
 
 interface Props {
@@ -22,21 +23,21 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
   const categories = useCategories();
   const [type, setType] = useState<TxType>('expense');
   const [amount, setAmount] = useState('');
-  const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
   const [date, setDate] = useState(today());
   const [note, setNote] = useState('');
-  const [repeat, setRepeat] = useState(false);
+  const [repeat, setRepeat] = useState<Freq | null>(null);
   const [scanning, setScanning] = useState(false);
   // Son 90 gunde en cok kullanilan kategoriler once
   const usage = useLiveQuery(
     async () => {
       const from = toISODate(new Date(Date.now() - 90 * 24 * 3600 * 1000));
-      const m = new Map<number, number>();
-      await db.transactions.where('date').aboveOrEqual(from).each((t) => m.set(t.categoryId, (m.get(t.categoryId) ?? 0) + 1));
+      const m = new Map<string, number>();
+      await db.entries.where('date').aboveOrEqual(from).each((t) => m.set(t.categoryId, (m.get(t.categoryId) ?? 0) + 1));
       return m;
     },
     [],
-    new Map<number, number>(),
+    new Map<string, number>(),
   );
   const [error, setError] = useState('');
   const amountRef = useRef<HTMLInputElement>(null);
@@ -46,7 +47,7 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
       amountRef.current?.focus();
       return;
     }
-    db.transactions.get(draft.id).then((t) => {
+    db.entries.get(draft.id).then((t) => {
       if (!t) return;
       setType(t.type);
       setAmount(String(t.amount).replace('.', ','));
@@ -70,18 +71,19 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
     if (!value || value <= 0) return setError('Geçerli bir tutar gir.');
     if (categoryId == null || !visibleCats.some((c) => c.id === categoryId)) return setError('Bir kategori seç.');
     const record = { type, amount: value, categoryId, date, note: note.trim() };
-    if (draft.id != null) await db.transactions.update(draft.id, record);
-    else await db.transactions.add({ ...record, createdAt: Date.now() });
+    if (draft.id != null) await db.entries.update(draft.id, record);
+    else await db.entries.add({ ...record, createdAt: Date.now() });
     if (draft.id == null && repeat) {
       const { type: t, amount: a, categoryId: c, note: n } = record;
-      await db.recurring.add({ type: t, amount: a, categoryId: c, note: n, day: Math.min(Number(date.slice(8)), 28), lastMonth: date.slice(0, 7) });
+      // Bu kayit ilk odeme; kural bir sonrakinden baslar
+      await db.subs.add({ type: t, amount: a, categoryId: c, note: n, freq: repeat, next: advance(startDate(date, repeat), repeat) });
     }
     onSaved(await budgetMessage(type, categoryId, date, draft.id != null ? 'Güncellendi' : 'Kaydedildi'), date);
   }
 
   async function remove() {
     if (draft.id == null || !confirm('Bu kayıt silinsin mi?')) return;
-    await db.transactions.delete(draft.id);
+    await db.entries.delete(draft.id);
     onSaved('Kayıt silindi');
   }
 
@@ -151,13 +153,29 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
           </label>
           {draft.id == null && (
             <label className="toggle-row">
-              <span>Her ay tekrarla</span>
-              <input type="checkbox" role="switch" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
+              <span>Tekrarla (abonelik, kira, maaş…)</span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={repeat != null}
+                onChange={(e) => setRepeat(e.target.checked ? 'monthly' : null)}
+              />
             </label>
           )}
         </div>
         {repeat && (
-          <p className="muted small">Her ayın {Math.min(Number(date.slice(8)), 28)}. günü bu kayıt kendiliğinden eklenir.</p>
+          <>
+            <div className="segmented">
+              {(Object.keys(FREQ_LABEL) as Freq[]).map((f) => (
+                <button key={f} className={repeat === f ? 'on' : ''} onClick={() => setRepeat(f)}>
+                  {FREQ_LABEL[f]}
+                </button>
+              ))}
+            </div>
+            <p className="muted small">
+              Sonraki: {formatDay(advance(startDate(date, repeat), repeat))}. Bütçe → Abonelikler'den düzenleyebilirsin.
+            </p>
+          </>
         )}
 
         {error && <p className="error">{error}</p>}
@@ -191,16 +209,16 @@ export default function AddEntry({ draft, onClose, onSaved }: Props) {
   );
 }
 
-async function budgetMessage(type: TxType, categoryId: number, date: string, base: string) {
+async function budgetMessage(type: TxType, categoryId: string, date: string, base: string) {
   if (type !== 'expense') return base;
   const budget = await db.budgets.get(categoryId);
   if (!budget || budget.limit <= 0) return base;
   const [from, to] = monthRange(date.slice(0, 7));
-  const monthTxs = await db.transactions.where('date').between(from, to, true, true).toArray();
+  const monthTxs = await db.entries.where('date').between(from, to, true, true).toArray();
   const spent = monthTxs
     .filter((t) => t.type === 'expense' && t.categoryId === categoryId)
     .reduce((s, t) => s + t.amount, 0);
-  const cat = await db.categories.get(categoryId);
+  const cat = await db.cats.get(categoryId);
   const pct = Math.round((spent / budget.limit) * 100);
   if (spent >= budget.limit) return `${cat?.name} bütçesi aşıldı (${formatTL(spent)} / ${formatTL(budget.limit)})`;
   if (spent >= budget.limit * 0.8) return `${cat?.name} bütçesi: %${pct} kullanıldı`;

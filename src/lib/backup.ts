@@ -1,17 +1,16 @@
-import { db, type Budget, type Category, type Meta, type Transaction } from '../db';
+import { convertLegacy, db, type Budget, type Category, type Meta, type Transaction } from '../db';
 import { toISODate } from './format';
-import { normalizeColor, normalizeIcon } from './icons';
 import type { RecurringRule } from './recurring';
 
 interface BackupFile {
   app: 'nekadar';
-  version: 1;
+  version: 1 | 2; // 1: sayisal kimlikler (v1.2 ve oncesi)
   exportedAt: string;
   categories: Category[];
   transactions: Transaction[];
   budgets: Budget[];
   recurring?: RecurringRule[]; // eski yedeklerde yok
-  meta?: Meta[]; // toplam butce vb.; lastBackup haric
+  meta?: Meta[]; // yalnizca totalBudget
 }
 
 /** iPhone'da Paylas menusunu acar (Dosyalar'a kaydet, WhatsApp, Mail...), olmazsa indirir */
@@ -42,13 +41,13 @@ async function markBackedUp() {
 export async function exportJSON() {
   const data: BackupFile = {
     app: 'nekadar',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
-    categories: await db.categories.toArray(),
-    transactions: await db.transactions.toArray(),
+    categories: await db.cats.toArray(),
+    transactions: await db.entries.toArray(),
     budgets: await db.budgets.toArray(),
-    recurring: await db.recurring.toArray(),
-    meta: await db.meta.where('key').notEqual('lastBackup').toArray(),
+    recurring: await db.subs.toArray(),
+    meta: await db.meta.where('key').equals('totalBudget').toArray(),
   };
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   await deliverFile(`nekadar-yedek-${toISODate(new Date())}.json`, blob);
@@ -56,8 +55,8 @@ export async function exportJSON() {
 }
 
 export async function exportCSV() {
-  const cats = new Map((await db.categories.toArray()).map((c) => [c.id, c.name]));
-  const txs = (await db.transactions.toArray()).sort((a, b) => a.date.localeCompare(b.date));
+  const cats = new Map((await db.cats.toArray()).map((c) => [c.id, c.name]));
+  const txs = (await db.entries.toArray()).sort((a, b) => a.date.localeCompare(b.date));
   const esc = (s: string) => (/[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
   const rows = [
     ['Tarih', 'Tür', 'Kategori', 'Tutar', 'Not'],
@@ -95,22 +94,23 @@ export async function importJSON(file: File): Promise<number> {
     throw new Error('Dosya okunamadı. Nekadar yedek dosyası (.json) seçtiğinden emin ol.');
   }
   if (!isBackup(parsed)) throw new Error('Bu dosya bir Nekadar yedeği değil.');
-  await db.transaction('rw', [db.categories, db.transactions, db.budgets, db.recurring, db.meta], async () => {
+  const n =
+    parsed.version === 2
+      ? { cats: parsed.categories, entries: parsed.transactions, budgets: parsed.budgets, subs: parsed.recurring ?? [] }
+      : convertLegacy(parsed); // eski yedek: kimlikleri cevir, emoji ikonlari duzelt
+  await db.transaction('rw', [db.cats, db.entries, db.budgets, db.subs, db.meta], async () => {
     await Promise.all([
-      db.categories.clear(),
-      db.transactions.clear(),
+      db.cats.clear(),
+      db.entries.clear(),
       db.budgets.clear(),
-      db.recurring.clear(),
-      db.meta.where('key').notEqual('lastBackup').delete(),
+      db.subs.clear(),
+      db.meta.delete('totalBudget'),
     ]);
-    await db.recurring.bulkAdd(parsed.recurring ?? []);
-    await db.meta.bulkPut((parsed.meta ?? []).filter((m) => m.key !== 'lastBackup'));
-    // Eski surum yedeklerindeki emoji ikonlari yeni ikonlara cevir
-    await db.categories.bulkAdd(
-      parsed.categories.map((c) => ({ ...c, icon: normalizeIcon(c.icon), color: normalizeColor(c.color) })),
-    );
-    await db.transactions.bulkAdd(parsed.transactions);
-    await db.budgets.bulkAdd(parsed.budgets);
+    await db.meta.bulkPut((parsed.meta ?? []).filter((m) => m.key === 'totalBudget'));
+    await db.cats.bulkAdd(n.cats);
+    await db.entries.bulkAdd(n.entries);
+    await db.budgets.bulkAdd(n.budgets);
+    await db.subs.bulkAdd(n.subs);
   });
   return parsed.transactions.length;
 }

@@ -1,10 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { CircleAlert, HardDriveDownload, ReceiptText } from 'lucide-react';
+import { CalendarClock, CircleAlert, HardDriveDownload, ReceiptText } from 'lucide-react';
 import MonthPicker from '../components/MonthPicker';
 import { db, type Transaction } from '../db';
 import { getLastBackup } from '../lib/backup';
-import { expenseByCategory, totals, useBudgets, useCategoryMap, useMonthTransactions, useTotalBudget } from '../lib/data';
-import { formatDay, formatTL } from '../lib/format';
+import { expenseByCategory, totals, useBudgets, useCategoryMap, useMonthTransactions, useSubs, useTotalBudget } from '../lib/data';
+import { formatDay, formatTL, today } from '../lib/format';
+import { daysBetween } from '../lib/recurring';
 import { CategoryIcon } from '../lib/icons';
 import type { EntryDraft } from './AddEntry';
 
@@ -33,14 +34,20 @@ export default function Home({ month, setMonth, onEdit }: Props) {
   const needsBackup = useLiveQuery(
     async () => {
       const last = await getLastBackup();
-      if (!last) return (await db.transactions.count()) >= 5 ? 'Henüz yedek almadın. Ayarlar\'dan yedek al.' : null;
-      const newSince = await db.transactions.filter((t) => t.createdAt > last.getTime()).count();
+      if (!last) return (await db.entries.count()) >= 5 ? 'Henüz yedek almadın. Ayarlar\'dan yedek al.' : null;
+      const newSince = await db.entries.filter((t) => t.createdAt > last.getTime()).count();
       const due = newSince >= 20 || (newSince > 0 && Date.now() - last.getTime() > 7 * 24 * 3600 * 1000);
       return due ? `Son yedekten sonra ${newSince} yeni kayıt var. Ayarlar'dan yedek al.` : null;
     },
     [],
     null,
   );
+
+  // Onumuzdeki 3 gun icindeki odemeler (bugunkuler acilista zaten eklendi)
+  const upcoming = useSubs()
+    .filter((s) => s.type === 'expense')
+    .map((s) => ({ s, days: daysBetween(today(), s.next) }))
+    .filter((x) => x.days >= 1 && x.days <= 3);
 
   const totalBudget = useTotalBudget();
   const totalRatio = totalBudget > 0 ? expense / totalBudget : 0;
@@ -82,8 +89,17 @@ export default function Home({ month, setMonth, onEdit }: Props) {
         </dl>
       </section>
 
-      {(warnings.length > 0 || needsBackup || totalRatio >= 0.8) && (
+      {(upcoming.length > 0 || warnings.length > 0 || needsBackup || totalRatio >= 0.8) && (
         <ul className="notices">
+          {upcoming.map(({ s, days }) => (
+            <li key={s.id}>
+              <CalendarClock size={16} strokeWidth={1.75} />
+              <span>
+                {days === 1 ? 'Yarın' : `${days} gün sonra`} {s.note || cats.get(s.categoryId)?.name} ödemen var:{' '}
+                {formatTL(s.amount)}
+              </span>
+            </li>
+          ))}
           {totalRatio >= 0.8 && (
             <li className={totalRatio >= 1 ? 'over' : ''}>
               <CircleAlert size={16} strokeWidth={1.75} />

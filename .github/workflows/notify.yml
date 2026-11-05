@@ -1,0 +1,22 @@
+name: Günlük bildirimler
+
+on:
+  schedule:
+    - cron: '0 7 * * *' # her gun 10:00 (Istanbul); GitHub birkac dakika geciktirebilir
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --prefix scripts --no-save --no-package-lock firebase-admin@13
+      - run: node scripts/notify.ts
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

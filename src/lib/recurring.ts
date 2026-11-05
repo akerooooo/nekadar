@@ -1,24 +1,46 @@
-// Bilerek bagimsiz (import yok): node testleri tarayici veritabani olmadan calistirabilsin.
+// Saf fonksiyonlar: tarayici DB'si olmadan node testleri ve bildirim betigi de kullanir.
+
+export type Freq = 'weekly' | 'monthly' | 'yearly';
 
 export interface RecurringRule {
-  id?: number;
+  id?: string;
   type: 'expense' | 'income';
   amount: number;
-  categoryId: number;
-  note: string;
-  day: number; // 1-28, her ay ayni gun
-  lastMonth: string; // en son kayit eklenen ay, YYYY-MM
+  categoryId: string;
+  note: string; // abonelik adi (bos olabilir)
+  freq: Freq;
+  next: string; // siradaki odeme tarihi, YYYY-MM-DD
+  updatedAt?: number;
 }
 
-const nextMonth = (key: string) => {
-  const [y, m] = key.split('-').map(Number);
-  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
-};
+export const FREQ_LABEL: Record<Freq, string> = { weekly: 'Haftalık', monthly: 'Aylık', yearly: 'Yıllık' };
 
-/** lastMonth'tan sonra, bugune kadar gunu gelmis her ay icin eklenecek tarihler (YYYY-MM-DD) */
-export function dueDates(rule: Pick<RecurringRule, 'day' | 'lastMonth'>, today: string): string[] {
-  const out: string[] = [];
-  const day = String(Math.min(Math.max(rule.day, 1), 28)).padStart(2, '0');
-  for (let m = nextMonth(rule.lastMonth); `${m}-${day}` <= today; m = nextMonth(m)) out.push(`${m}-${day}`);
-  return out;
+/** Bir sonraki tekrar tarihi. Aylik/yillik kurallarda gun 28'i gecmez (startDate ile). */
+export function advance(date: string, freq: Freq): string {
+  const [y, m, d] = date.split('-').map(Number);
+  const t =
+    freq === 'weekly' ? Date.UTC(y, m - 1, d + 7) : freq === 'monthly' ? Date.UTC(y, m, d) : Date.UTC(y + 1, m - 1, d);
+  return new Date(t).toISOString().slice(0, 10);
 }
+
+/** Aylik/yillik kuralda 29-31 her ay olmadigi icin 28'e cekilir */
+export const startDate = (date: string, freq: Freq) =>
+  freq === 'weekly' ? date : `${date.slice(0, 8)}${String(Math.min(Number(date.slice(8)), 28)).padStart(2, '0')}`;
+
+/** Bugune kadar gunu gelmis tarihler ve ondan sonraki ilk odeme tarihi */
+export function catchUp(rule: Pick<RecurringRule, 'next' | 'freq'>, today: string) {
+  const dates: string[] = [];
+  let d = rule.next;
+  while (d <= today) {
+    dates.push(d);
+    d = advance(d, rule.freq);
+  }
+  return { dates, next: d };
+}
+
+/** Aylik esdeger tutar (haftalik 52/12, yillik 1/12) */
+export const monthlyCost = (r: Pick<RecurringRule, 'amount' | 'freq'>) =>
+  r.freq === 'weekly' ? (r.amount * 52) / 12 : r.freq === 'yearly' ? r.amount / 12 : r.amount;
+
+/** Iki tarih arasindaki gun farki */
+export const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);

@@ -43,6 +43,18 @@ Uygulama kendi simgesiyle ana ekranda görünür, tam ekran açılır ve interne
 > **Önemli:** Veriler telefonda durduğu için telefon değiştirirken **Ayarlar → Yedek al** ile dosyayı
 > iCloud Drive'a kaydet, yeni telefonda **Yedekten geri yükle** ile aç.
 
+## Hesap, eşitleme ve bildirimler (isteğe bağlı, Firebase Spark – ücretsiz)
+
+Ayarlar yapılmazsa uygulama hesapsız çalışır ve Hesap bölümü görünmez.
+
+1. Firebase konsolunda proje aç; Authentication > Google girişini aç; Authorized domains'e `akerooooo.github.io` ekle.
+2. Firestore Database oluştur (production mode) ve Rules sekmesine `firestore.rules` içeriğini yapıştır.
+3. Project settings > General > Web app ekle; çıkan `firebaseConfig` nesnesini JSON olarak GitHub'da
+   Settings > Secrets and variables > Actions > **Variables** > `FIREBASE_CONFIG` adıyla kaydet.
+4. Project settings > Cloud Messaging > Web Push certificates > Generate key pair; anahtarı `FIREBASE_VAPID_KEY` değişkeni olarak kaydet.
+5. Project settings > Service accounts > Generate new private key; dosyanın içeriğini **Secrets** > `FIREBASE_SERVICE_ACCOUNT` olarak kaydet (bu gizlidir, kimseyle paylaşma).
+6. Actions'ta "GitHub Pages'e yayınla" iş akışını yeniden çalıştır. Günlük bildirimleri `.github/workflows/notify.yml` her sabah 10:00'da gönderir.
+
 ## Teknik
 
 Vite + React + TypeScript · Dexie (IndexedDB) · Recharts · Tesseract.js (fiş okuma, cihaz üzerinde) · vite-plugin-pwa

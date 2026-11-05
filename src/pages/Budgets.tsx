@@ -12,8 +12,16 @@ import {
 } from '../lib/data';
 import { formatTL, parseAmount } from '../lib/format';
 import { CategoryIcon } from '../lib/icons';
+import Subs from './Subs';
 
-export default function Budgets({ month, setMonth }: { month: string; setMonth: (m: string) => void }) {
+interface Props {
+  month: string;
+  setMonth: (m: string) => void;
+  toast: (m: string) => void;
+}
+
+export default function Budgets({ month, setMonth, toast }: Props) {
+  const [view, setView] = useState<'limits' | 'subs'>('limits');
   const cats = useCategories().filter((c) => c.type === 'expense');
   const budgets = useBudgets();
   const txs = useMonthTransactions(month);
@@ -21,12 +29,12 @@ export default function Budgets({ month, setMonth }: { month: string; setMonth: 
   const { expense } = totals(txs);
   const totalBudget = useTotalBudget();
   // null: duzenleme yok, 'total': toplam butce, sayi: kategori limiti
-  const [editing, setEditing] = useState<number | 'total' | null>(null);
+  const [editing, setEditing] = useState<string | 'total' | null>(null);
   const [value, setValue] = useState('');
 
-  const limitOf = (id: number) => budgets.find((b) => b.categoryId === id)?.limit ?? 0;
+  const limitOf = (id: string) => budgets.find((b) => b.categoryId === id)?.limit ?? 0;
 
-  async function saveLimit(categoryId: number) {
+  async function saveLimit(categoryId: string) {
     const n = parseAmount(value);
     if (!value.trim() || !n || n <= 0) await db.budgets.delete(categoryId);
     else await db.budgets.put({ categoryId, limit: n });
@@ -43,8 +51,18 @@ export default function Budgets({ month, setMonth }: { month: string; setMonth: 
     <>
       <header className="page-head">
         <h1>Bütçe</h1>
-        <MonthPicker month={month} setMonth={setMonth} />
+        {view === 'limits' && <MonthPicker month={month} setMonth={setMonth} />}
       </header>
+
+      <div className="segmented">
+        <button className={view === 'limits' ? 'on' : ''} onClick={() => setView('limits')}>Limitler</button>
+        <button className={view === 'subs' ? 'on' : ''} onClick={() => setView('subs')}>Abonelikler</button>
+      </div>
+
+      {view === 'subs' ? (
+        <Subs toast={toast} />
+      ) : (
+        <>
 
       <section className="hero">
         {editing === 'total' ? (
@@ -150,6 +168,8 @@ export default function Budgets({ month, setMonth }: { month: string; setMonth: 
           );
         })}
       </ul>
+        </>
+      )}
     </>
   );
 }

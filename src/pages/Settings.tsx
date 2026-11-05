@@ -1,22 +1,22 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronRight, Download, FileSpreadsheet, Trash2, Upload, X } from 'lucide-react';
-import { db, DEFAULT_CATEGORIES, type Category, type TxType } from '../db';
-import { formatTL } from '../lib/format';
+import { db, defaultCategories, type Category, type TxType } from '../db';
 import { exportCSV, exportJSON, getLastBackup, importJSON } from '../lib/backup';
 import { useCategories } from '../lib/data';
+import { cloudEnabled } from '../lib/cloud';
+import Account from '../components/Account';
 import { CategoryIcon, PALETTE, PICKABLE_ICONS } from '../lib/icons';
 
 export default function Settings({ toast }: { toast: (m: string) => void }) {
   const lastBackup = useLiveQuery(getLastBackup, [], null);
-  const txCount = useLiveQuery(() => db.transactions.count(), [], 0);
+  const txCount = useLiveQuery(() => db.entries.count(), [], 0);
   const categories = useCategories();
   const [newName, setNewName] = useState('');
   const [newIcon, setNewIcon] = useState(PICKABLE_ICONS[0]);
   const [newType, setNewType] = useState<TxType>('expense');
   const [newColor, setNewColor] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const recurring = useLiveQuery(() => db.recurring.toArray(), [], []);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const persisted = useLiveQuery(async () => (await navigator.storage?.persisted?.()) ?? false, [], false);
   const catMap = new Map(categories.map((c) => [c.id, c]));
   // Duzenlenen varsayilan kategorinin ikonu secim listesinde yoksa basa eklenir
@@ -61,33 +61,33 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
     const name = newName.trim();
     if (!name) return;
     const color = newColor ?? PALETTE[categories.length % PALETTE.length];
-    if (editingId != null) await db.categories.update(editingId, { name, icon: newIcon, color });
-    else await db.categories.add({ name, icon: newIcon, color, type: newType });
+    if (editingId != null) await db.cats.update(editingId, { name, icon: newIcon, color });
+    else await db.cats.add({ name, icon: newIcon, color, type: newType });
     toast(editingId != null ? `${name} güncellendi` : `${name} eklendi`);
     resetForm();
   }
 
-  async function removeCategory(id: number, name: string) {
+  async function removeCategory(id: string, name: string) {
     const type = categories.find((x) => x.id === id)?.type;
     const others = categories.filter((c) => c.id !== id && c.type === type);
     const fallback = others.find((c) => c.name.startsWith('Diğer')) ?? others[0];
     if (!fallback) return toast('Her türde en az bir kategori kalmalı');
-    const used = await db.transactions.where('categoryId').equals(id).count();
+    const used = await db.entries.where('categoryId').equals(id).count();
     const msg = used
       ? `${name} kategorisinde ${used} kayıt var. Kayıtlar ${fallback.name} kategorisine taşınacak. Silinsin mi?`
       : `${name} silinsin mi?`;
     if (!confirm(msg)) return;
-    await db.transaction('rw', [db.categories, db.transactions, db.budgets, db.recurring], async () => {
-      await db.transactions.where('categoryId').equals(id).modify({ categoryId: fallback.id });
-      await db.recurring.filter((r) => r.categoryId === id).modify({ categoryId: fallback.id });
+    await db.transaction('rw', [db.cats, db.entries, db.budgets, db.subs], async () => {
+      await db.entries.where('categoryId').equals(id).modify({ categoryId: fallback.id });
+      await db.subs.filter((r) => r.categoryId === id).modify({ categoryId: fallback.id });
       await db.budgets.delete(id);
-      await db.categories.delete(id);
+      await db.cats.delete(id);
     });
     if (editingId === id) resetForm();
   }
 
   async function wipe() {
-    if (!confirm('Tüm kayıtlar, bütçeler ve kategoriler silinecek. Bu geri alınamaz. Emin misin?')) return;
+    if (!confirm('Tüm kayıtlar, bütçeler ve kategoriler silinecek (giriş yaptıysan diğer cihazlarından da). Bu geri alınamaz. Emin misin?')) return;
     if (txCount > 0 && confirm('Silmeden önce yedek alınsın mı?')) {
       try {
         await exportJSON();
@@ -95,15 +95,15 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
         return toast('Yedek alınmadı, silme iptal edildi');
       }
     }
-    await db.transaction('rw', [db.categories, db.transactions, db.budgets, db.meta, db.recurring], async () => {
+    await db.transaction('rw', [db.cats, db.entries, db.budgets, db.meta, db.subs], async () => {
       await Promise.all([
-        db.transactions.clear(),
+        db.entries.clear(),
         db.budgets.clear(),
-        db.categories.clear(),
-        db.meta.clear(),
-        db.recurring.clear(),
+        db.cats.clear(),
+        db.meta.bulkDelete(['totalBudget', 'lastBackup']),
+        db.subs.clear(),
       ]);
-      await db.categories.bulkAdd(DEFAULT_CATEGORIES);
+      await db.cats.bulkAdd(defaultCategories());
     });
     toast('Tüm veriler silindi');
   }
@@ -113,6 +113,8 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
       <header className="page-head">
         <h1>Ayarlar</h1>
       </header>
+
+      {cloudEnabled && <Account toast={toast} />}
 
       <section className="block">
         <h2 className="block-title">Yedekleme</h2>
@@ -248,45 +250,9 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
       </section>
 
       <section className="block">
-        <h2 className="block-title">Tekrarlayan kayıtlar</h2>
-        {recurring.length === 0 ? (
-          <p className="lead">Kira, fatura gibi her ay tekrar eden kayıtları eklerken "Her ay tekrarla"yı aç.</p>
-        ) : (
-          <ul className="list">
-            {recurring.map((r) => {
-              const c = catMap.get(r.categoryId);
-              return (
-                <li key={r.id} className="row">
-                  <span className="cat-icon" style={{ color: c?.color }}>
-                    <CategoryIcon name={c?.icon} />
-                  </span>
-                  <span className="row-text">
-                    <span>{r.note || c?.name}</span>
-                    <span className="muted small">Her ayın {r.day}. günü</span>
-                  </span>
-                  <span className={`row-amount ${r.type === 'income' ? 'pos' : ''}`}>{formatTL(r.amount)}</span>
-                  <button
-                    className="icon-btn"
-                    aria-label="Tekrarı durdur"
-                    onClick={async () => {
-                      if (!confirm('Bu kayıt artık her ay eklenmesin mi? Eklenmiş kayıtlar silinmez.')) return;
-                      await db.recurring.delete(r.id!);
-                      toast('Tekrar durduruldu');
-                    }}
-                  >
-                    <X size={16} strokeWidth={1.75} />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      <section className="block">
         <h2 className="block-title">Hakkında</h2>
         <p className="lead">
-          Nekadar ücretsizdir. Hesap, sunucu ya da reklam yoktur; tüm veriler senin cihazında kalır.
+          Nekadar ücretsizdir ve reklam yoktur. Giriş yapmazsan tüm veriler yalnızca bu cihazda kalır.
         </p>
         <button className="text-danger" onClick={wipe}>
           <Trash2 size={16} strokeWidth={1.75} />

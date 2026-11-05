@@ -24,7 +24,7 @@ export default function InstallHint() {
       return false;
     }
   });
-  const hasData = useLiveQuery(async () => (await db.transactions.count()) > 0, [], false);
+  const hasData = useLiveQuery(async () => (await db.entries.count()) > 0, [], false);
   if (isStandalone() || !isIOS()) return null;
   // Kayit varken Safari'de kullanmak veri kaybi riski: bu uyari kapatilamaz
   if (hasData)

@@ -21,7 +21,7 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
   const year = month.slice(0, 4);
   const yearly = useLiveQuery(
     async () => {
-      const all = await db.transactions.where('date').between(`${year}-01-01`, `${year}-12-31`, true, true).toArray();
+      const all = await db.entries.where('date').between(`${year}-01-01`, `${year}-12-31`, true, true).toArray();
       const t = totals(all);
       const byCat = [...expenseByCategory(all)].sort((a, b) => b[1] - a[1]);
       // Ortalama yalnizca kaydi olan aylara bolunur; bos aylar ortalamayi dusurmesin
@@ -36,7 +36,7 @@ export default function Stats({ month, setMonth }: { month: string; setMonth: (m
       const first = shiftMonth(month, -5);
       const [from] = monthRange(first);
       const [, to] = monthRange(month);
-      const all = await db.transactions.where('date').between(from, to, true, true).toArray();
+      const all = await db.entries.where('date').between(from, to, true, true).toArray();
       return Array.from({ length: 6 }, (_, i) => {
         const key = shiftMonth(first, i);
         const t = totals(all.filter((x) => x.date.startsWith(key)));
