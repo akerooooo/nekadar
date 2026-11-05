@@ -103,7 +103,7 @@ input::placeholder {
 
 /* Yerlesim */
 .app {
-  max-width: 520px;
+  max-width: var(--app-w);
   margin: 0 auto;
   min-height: 100dvh;
 }
@@ -427,7 +427,8 @@ h1 {
   justify-content: space-around;
   align-items: center;
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-  padding: 0 8px env(safe-area-inset-bottom);
+  /* genis ekranda sekmeler icerik genisliginde toplansin */
+  padding: 0 max(8px, calc(50% - var(--app-w) / 2)) env(safe-area-inset-bottom);
   background: color-mix(in srgb, var(--paper) 86%, transparent);
   backdrop-filter: blur(18px) saturate(1.4);
   -webkit-backdrop-filter: blur(18px) saturate(1.4);
@@ -1175,4 +1176,46 @@ h1 {
   padding: 10px 16px;
   color: var(--ink);
   font-weight: 600;
+}
+
+/* iOS Safari tarih kutusunu ortalar; digerleri gibi saga yasla */
+.fields input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  min-height: 48px;
+}
+
+.fields input[type='date']::-webkit-date-and-time-value {
+  text-align: right;
+}
+
+/* Tablet ve bilgisayar: biraz daha genis icerik, sayfalar ortada pencere olarak acilir */
+:root {
+  --app-w: 520px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --app-w: 600px;
+  }
+
+  .content {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  .sheet-backdrop {
+    align-items: center;
+    padding: 24px;
+  }
+
+  .sheet {
+    max-width: 560px;
+    max-height: min(88dvh, 860px);
+  }
+
+  .sheet.tall {
+    min-height: min(88dvh, 760px);
+  }
 }
