@@ -11,7 +11,6 @@ import { CategoryIcon, PALETTE, PICKABLE_ICONS } from '../lib/icons';
 
 export default function Settings({ toast }: { toast: (m: string) => void }) {
   const lastBackup = useLiveQuery(getLastBackup, [], null);
-  const signedIn = useLiveQuery(async () => !!(await db.meta.get('syncEmail')), [], false);
   const txCount = useLiveQuery(() => db.entries.count(), [], 0);
   const categories = useCategories();
   const [newName, setNewName] = useState('');
@@ -121,17 +120,10 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
 
       <section className="block">
         <h2 className="block-title">Yedekleme</h2>
-        <p className="lead">
-          {signedIn
-            ? 'Kayıtların hesabınla buluta da kaydediliyor. Yine de ara sıra yedek almak iyi olur.'
-            : "Verilerin yalnızca bu telefonda durur. Telefon değiştirmeden önce yedek al ve Dosyalar'a ya da iCloud Drive'a kaydet."}
-        </p>
         <p className="muted small">
-          {txCount} kayıt. Son yedek: {lastBackup ? lastBackup.toLocaleDateString('tr-TR') : 'henüz alınmadı'}.
+          {txCount} kayıt · Son yedek: {lastBackup ? lastBackup.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' }) : 'yok'}
         </p>
-        <p className="muted small">
-          Kalıcı depolama: {persisted ? 'açık' : 'kapalı. Ana ekrana ekleyip oradan açarsan verilerin daha güvende olur.'}
-        </p>
+        {!persisted && <p className="muted small">Ana ekrana ekle, verilerin daha güvende olur.</p>}
         <ul className="list actions">
           <li>
             <button className="row" onClick={() => run(exportJSON, 'Yedek hazırlandı')}>
@@ -256,10 +248,7 @@ export default function Settings({ toast }: { toast: (m: string) => void }) {
       <Subs toast={toast} />
 
       <section className="block">
-        <h2 className="block-title">Hakkında</h2>
-        <p className="lead">
-          Nekadar ücretsizdir ve reklam yoktur. Giriş yapmazsan tüm veriler yalnızca bu cihazda kalır.
-        </p>
+        <p className="muted small center">Nekadar · ücretsiz, reklamsız</p>
         <button className="text-danger" onClick={wipe}>
           <Trash2 size={16} strokeWidth={1.75} />
           Tüm verileri sil

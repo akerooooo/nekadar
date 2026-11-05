@@ -53,10 +53,7 @@ export default function Account({ toast }: { toast: (m: string) => void }) {
     return (
       <section className="block">
         <h2 className="block-title">Hesap</h2>
-        <p className="lead">
-          İstersen Google ile giriş yap; kayıtların diğer cihazlarında da görünsün ve ödeme hatırlatması alabil. Giriş
-          yapmadan da her şey çalışır.
-        </p>
+        <p className="lead">Kayıtların tüm cihazlarında olsun, ödeme hatırlatması al.</p>
         <ul className="list actions">
           <li>
             <button className="row" disabled={busy || !sync} onClick={() => act(() => sync!.signIn(), 'Giriş yapıldı')}>
@@ -66,10 +63,6 @@ export default function Account({ toast }: { toast: (m: string) => void }) {
             </button>
           </li>
         </ul>
-        <p className="muted small">
-          Giriş yaparsan kayıtların Google Firebase sunucularında hesabına bağlı saklanır; yalnızca sen erişebilirsin.
-          Hesabını silince buluttaki verilerin de silinir.
-        </p>
       </section>
     );
   }
@@ -94,10 +87,7 @@ export default function Account({ toast }: { toast: (m: string) => void }) {
         <li>
           <button className="row" disabled={busy || pushOn} onClick={enableNotifications}>
             <Bell size={18} strokeWidth={1.75} />
-            <span className="row-text">
-              <span>{pushOn ? 'Bildirimler açık' : 'Bildirimleri aç'}</span>
-              <span className="muted small">Yaklaşan ödemeler ve bütçe uyarıları</span>
-            </span>
+            <span className="row-text">{pushOn ? 'Bildirimler açık' : 'Bildirimleri aç'}</span>
             {!pushOn && <ChevronRight size={16} strokeWidth={1.75} className="muted" />}
           </button>
         </li>
@@ -107,10 +97,7 @@ export default function Account({ toast }: { toast: (m: string) => void }) {
               act(async () => (await loadSync()).signOut(), 'Çıkış yapıldı');
             }}>
             <LogOut size={18} strokeWidth={1.75} />
-            <span className="row-text">
-              <span>Çıkış yap</span>
-              <span className="muted small">Kayıtların bu cihazda kalır</span>
-            </span>
+            <span className="row-text">Çıkış yap</span>
           </button>
         </li>
       </ul>

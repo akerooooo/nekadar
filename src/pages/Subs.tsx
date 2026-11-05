@@ -16,14 +16,11 @@ export default function Subs({ toast }: { toast: (m: string) => void }) {
     <section className="block">
       <h2 className="block-title">Tekrarlayan kayıtlar</h2>
       {subs.length === 0 ? (
-        <p className="lead">
-          Abonelik, kira, maaş, burs gibi düzenli kayıtları eklerken "Tekrarlayan ödeme" ya da "Tekrarlayan gelir"i aç;
-          günü gelince kendiliğinden eklenir.
-        </p>
+        <p className="muted small">Kayıt eklerken "Tekrarlayan" seçeneğini aç.</p>
       ) : (
         <>
           <p className="muted small">
-            Düzenli ödemelerin ayda {formatTL(monthly)}, yılda {formatTL(monthly * 12)}. Düzenlemek için dokun.
+            Düzenli ödemelerin ayda {formatTL(monthly)}, yılda {formatTL(monthly * 12)}.
           </p>
           <ul className="list">
             {subs.map((s) => {
