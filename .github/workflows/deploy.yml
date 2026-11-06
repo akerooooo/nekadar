@@ -28,9 +28,8 @@ jobs:
       - run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
-          # Hesap ve bildirim icin; Settings > Secrets and variables > Actions > Variables
+          # Hesap icin; Settings > Secrets and variables > Actions > Variables
           VITE_FIREBASE_CONFIG: ${{ vars.FIREBASE_CONFIG }}
-          VITE_FIREBASE_VAPID_KEY: ${{ vars.FIREBASE_VAPID_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

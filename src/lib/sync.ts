@@ -21,7 +21,6 @@ import {
   onSnapshot,
   query,
   serverTimestamp,
-  setDoc,
   Timestamp,
   where,
   writeBatch,
@@ -67,7 +66,7 @@ export async function deleteAccount() {
   if (!user) return;
   await reauthenticateWithPopup(user, new GoogleAuthProvider()); // Firebase yakin zamanda giris ister
   stopListeners();
-  for (const name of [...TABLES, 'devices', 'server']) {
+  for (const name of [...TABLES, 'devices', 'server']) { // devices/server: eski bildirim surumunden kalan veriler
     const snap = await getDocs(collection(fs, 'users', user.uid, name));
     for (let i = 0; i < snap.docs.length; i += 400) {
       const batch = writeBatch(fs);
@@ -76,22 +75,6 @@ export async function deleteAccount() {
     }
   }
   await deleteUser(user);
-}
-
-/** Bu cihazi bildirim alacak sekilde kaydeder. Izin, cagirmadan once dugmede istenmeli. */
-export async function enablePush() {
-  const { getMessaging, getToken, isSupported } = await import('firebase/messaging');
-  if (!(await isSupported()))
-    throw new Error("Bu cihaz bildirim desteklemiyor. iPhone'da uygulamayı ana ekrana ekleyip oradan aç (iOS 16.4+).");
-  const registration = await navigator.serviceWorker?.getRegistration();
-  if (!registration) throw new Error('Bildirimler yalnızca yayındaki uygulamada çalışır.');
-  if (!uid) throw new Error('Önce giriş yap.');
-  const token = await getToken(getMessaging(app), {
-    vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-    serviceWorkerRegistration: registration,
-  });
-  await setDoc(doc(fs, 'users', uid, 'devices', token), { token, updatedAt: Date.now() });
-  await db.meta.put({ key: 'pushOn', value: '1' });
 }
 
 async function start(user: User) {
@@ -126,10 +109,6 @@ async function start(user: User) {
   }
   const sub = liveQuery(() => db.outbox.count()).subscribe((n) => n && push());
   stops.push(() => sub.unsubscribe());
-  // Bildirim jetonu zamanla degisir; her acilista yenile (izin zaten verilmisse soru sormaz)
-  if ((await db.meta.get('pushOn')) && 'Notification' in window && Notification.permission === 'granted') {
-    enablePush().catch(console.error);
-  }
 }
 
 /** Bu cihazda ilk giris: once buluttakini cek, sonra yalnizca yerelde daha yeni olanlari gonder */

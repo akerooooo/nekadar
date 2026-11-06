@@ -1,4 +1,4 @@
-// Saf fonksiyonlar: tarayici DB'si olmadan node testleri ve bildirim betigi de kullanir.
+// Saf fonksiyonlar: tarayici DB'si olmadan node testlerinde de calisir.
 
 export type Freq = 'weekly' | 'monthly' | 'yearly';
 

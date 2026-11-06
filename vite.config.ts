@@ -32,7 +32,6 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        importScripts: ['push-sw.js'], // bildirim gosterme (public/push-sw.js)
         // Fis okuma icin indirilen OCR dosyalarini da sakla (bir kez indirilince internetsiz calisir)
         runtimeCaching: [
           {

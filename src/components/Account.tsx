@@ -1,16 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Bell, ChevronRight, CloudCheck, CloudUpload, LogIn, LogOut, UserX } from 'lucide-react';
+import { ChevronRight, CloudCheck, CloudUpload, LogIn, LogOut, UserX } from 'lucide-react';
 import { db } from '../db';
 import { loadSync } from '../lib/cloud';
 
-const NO_PUSH = "Bu cihaz bildirim desteklemiyor. iPhone'da uygulamayı ana ekrana ekleyip oradan aç (iOS 16.4+).";
-
-/** Ayarlar > Hesap: isteğe bagli Google girisi, eşitleme durumu, bildirimler */
+/** Ayarlar > Hesap: isteğe bagli Google girisi, eşitleme durumu */
 export default function Account({ toast }: { toast: (m: string) => void }) {
   const email = useLiveQuery(async () => (await db.meta.get('syncEmail'))?.value ?? null, [], null);
   const pending = useLiveQuery(() => db.outbox.count(), [], 0);
-  const pushOn = useLiveQuery(async () => !!(await db.meta.get('pushOn')), [], false);
   const firstSync = useLiveQuery(async () => !!(await db.meta.get('syncBusy')), [], false);
   const [busy, setBusy] = useState(false);
   // Firebase'i Ayarlar acilinca onceden yukle: dokununca Google penceresi hemen acilsin.
@@ -38,22 +35,11 @@ export default function Account({ toast }: { toast: (m: string) => void }) {
     }
   }
 
-  function enableNotifications() {
-    // Izin, dokunusun hemen ardindan istenmeli (iOS); modul yuklemesini beklemeden
-    const permission = 'Notification' in window ? Notification.requestPermission() : Promise.resolve('unsupported');
-    act(async () => {
-      const p = await permission;
-      if (p === 'unsupported') throw new Error(NO_PUSH);
-      if (p !== 'granted') throw new Error("Bildirim izni verilmedi. iPhone Ayarlar > Bildirimler > Nekadar'dan açabilirsin.");
-      await (await loadSync()).enablePush();
-    }, 'Bildirimler açıldı');
-  }
-
   if (!email) {
     return (
       <section className="block">
         <h2 className="block-title">Hesap</h2>
-        <p className="lead">Kayıtların tüm cihazlarında olsun, ödeme hatırlatması al.</p>
+        <p className="lead">Kayıtların tüm cihazlarında olsun.</p>
         <ul className="list actions">
           <li>
             <button className="row" disabled={busy || !sync} onClick={() => act(() => sync!.signIn(), 'Giriş yapıldı')}>
@@ -84,13 +70,6 @@ export default function Account({ toast }: { toast: (m: string) => void }) {
         </span>
       </p>
       <ul className="list actions">
-        <li>
-          <button className="row" disabled={busy || pushOn} onClick={enableNotifications}>
-            <Bell size={18} strokeWidth={1.75} />
-            <span className="row-text">{pushOn ? 'Bildirimler açık' : 'Bildirimleri aç'}</span>
-            {!pushOn && <ChevronRight size={16} strokeWidth={1.75} className="muted" />}
-          </button>
-        </li>
         <li>
           <button className="row" disabled={busy} onClick={() => {
               if (pending && !confirm(`${pending} değişiklik henüz buluta gitmedi; çıkarsan diğer cihazlarına geçmez. Yine de çıkılsın mı?`)) return;
